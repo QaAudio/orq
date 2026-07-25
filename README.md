@@ -61,14 +61,14 @@ Related ideas: Pueue, Temporal, Restate, Taskwarrior, Hatchet.
 ## Install
 
 ```bash
-git clone git@github.com:QaAudio/orq.git
-cd orq
+git clone git@github.com:QaAudio/porq.git
+cd porq
 cargo build --release
 # binary: target/release/porq
 ```
 
 Optional: set `ORQ_DATA_DIR` (defaults to your platform's local data dir `/orq`).
-Env vars still use the `ORQ_*` prefix; crate paths are unchanged until the repo rename.
+Env vars keep the `ORQ_*` prefix for compatibility; Rust crate paths remain `orq` / `orq-core` for now.
 
 Smoke everything once:
 
