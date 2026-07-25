@@ -12,5 +12,7 @@ sequences (`porq …`). Prefer `--json` when an agent reads the output.
 | [`queue-drain`](queue-drain.md) | Many workers drain; single-flight apply |
 | [`model-routing`](model-routing.md) | Affinity picks a model for a class |
 | [`moa-merge`](moa-merge.md) | Propose in parallel, aggregate (Mixture-of-Agents) |
+| [`review-agent`](review-agent.md) | Post-`exec-*` review + `land-*` pre-exec veto |
+| [`roadmap-sanity`](roadmap-sanity.md) | Advisory proposal review (never writes SoT) |
 
 Full check: `../scripts/smoke.ps1` (or `../scripts/smoke.sh`).

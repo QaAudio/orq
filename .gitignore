@@ -20,3 +20,6 @@ dash/
 *.swp
 .DS_Store
 Thumbs.db
+
+.porq-data-tdrs/
+

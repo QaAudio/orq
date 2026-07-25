@@ -298,22 +298,53 @@ impl<'a> TaskEngine<'a> {
 
         let engine = TriggerEngine::new(self.store);
         let mut seen = HashSet::new();
-        let _ = engine.process_event(
+        let payload = json!({
+            "id": task.id,
+            "name": task.name,
+            "exit_code": exit_code,
+            "status": status.as_str()
+        });
+        if let Err(e) = engine.process_event(
             &task.workspace,
             task.session.as_deref(),
             "task.post-exec",
-            &json!({ "id": task.id, "name": task.name, "exit_code": exit_code, "status": status.as_str() }),
+            &payload,
             0,
             &mut seen,
-        );
-        let _ = engine.process_event(
+        ) {
+            let _ = self.store.append_event(
+                &task.workspace,
+                task.session.as_deref(),
+                "trigger.terminal_error",
+                json!({
+                    "task_id": task.id,
+                    "event": "task.post-exec",
+                    "error": e.to_string()
+                }),
+            );
+            // Blocking veto / budget / cascade fail closed for terminal path.
+            return Err(e);
+        }
+        if let Err(e) = engine.process_event(
             &task.workspace,
             task.session.as_deref(),
             kind,
             &json!({ "id": task.id, "name": task.name, "exit_code": exit_code }),
             0,
             &mut seen,
-        );
+        ) {
+            let _ = self.store.append_event(
+                &task.workspace,
+                task.session.as_deref(),
+                "trigger.terminal_error",
+                json!({
+                    "task_id": task.id,
+                    "event": kind,
+                    "error": e.to_string()
+                }),
+            );
+            return Err(e);
+        }
 
         // Affinity feedback for standalone (non-job) model tasks; jobs finalize in JobEngine
         if task.job_id.is_none() {
@@ -542,25 +573,20 @@ fn split_poi_ref(s: &str) -> (&str, &str) {
 }
 
 fn resolve_profile(profile: &str, command: &str) -> String {
-    match profile {
-        "shell" | "" => command.to_string(),
-        "cursor-agent" => format!("cursor agent {command}"),
-        other => {
-            // template: {cmd} placeholder
-            if other.contains("{cmd}") {
-                other.replace("{cmd}", command)
-            } else {
-                command.to_string()
-            }
-        }
-    }
+    // Legacy shell-line path. Prefer LaunchProfile / build_command for new runners.
+    crate::launch_profile::resolve_legacy_profile(profile, command)
 }
 
 fn terminate_pid(pid: u32, force: bool) {
     #[cfg(windows)]
     {
         let args = if force {
-            vec!["/F".to_string(), "/PID".into(), pid.to_string()]
+            vec![
+                "/F".to_string(),
+                "/T".into(),
+                "/PID".into(),
+                pid.to_string(),
+            ]
         } else {
             vec!["/PID".into(), pid.to_string()]
         };

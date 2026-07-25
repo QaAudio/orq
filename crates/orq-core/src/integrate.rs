@@ -1,4 +1,4 @@
-use crate::error::Result;
+use crate::error::{OrqError, Result};
 use std::path::Path;
 
 pub const SKILL_MD: &str = r##"---
@@ -68,7 +68,7 @@ porq run --claim "src/engine/**" --name edit -- "…"
 ```
 
 ## Recipes
-See `recipes/`: linear-sync, central-committer, review-gate, preland-gate, queue-drain, model-routing, moa-merge.
+See `recipes/`: linear-sync, central-committer, review-gate, preland-gate, queue-drain, model-routing, moa-merge, review-agent, roadmap-sanity.
 
 Env vars still use the `ORQ_*` prefix (compat); binary is `porq`.
 "##;
@@ -86,6 +86,56 @@ When coordinating multiple agents or shared lockable state, prefer the `porq` CL
 - Share status on the dashboard with `porq canvas set` (primary view); Details holds ops tables.
 - Multi-model work: register models, set affinities, prefer `--strategy single|race|moa --sync`.
 "#;
+
+/// Integration pack: install host-specific agent guidance without baking vendor logic into porq core.
+pub trait IntegrationPack {
+    fn id(&self) -> &'static str;
+    fn integrate(&self, host_root: &Path) -> Result<Vec<String>>;
+}
+
+pub struct CursorPack;
+
+impl IntegrationPack for CursorPack {
+    fn id(&self) -> &'static str {
+        "cursor"
+    }
+
+    fn integrate(&self, host_root: &Path) -> Result<Vec<String>> {
+        integrate_cursor(host_root)
+    }
+}
+
+/// Fixture pack used by conformance tests — writes a marker file only.
+pub struct FakePack;
+
+impl IntegrationPack for FakePack {
+    fn id(&self) -> &'static str {
+        "fake"
+    }
+
+    fn integrate(&self, host_root: &Path) -> Result<Vec<String>> {
+        let dir = host_root.join(".porq-integrate-fake");
+        std::fs::create_dir_all(&dir)?;
+        let marker = dir.join("OK");
+        std::fs::write(&marker, "fake-pack-ok\n")?;
+        Ok(vec![marker.display().to_string()])
+    }
+}
+
+pub fn list_integration_packs() -> Vec<&'static str> {
+    vec!["cursor", "fake"]
+}
+
+pub fn integrate_pack(target: &str, host_root: &Path) -> Result<Vec<String>> {
+    match target {
+        "cursor" => CursorPack.integrate(host_root),
+        "fake" => FakePack.integrate(host_root),
+        other => Err(OrqError::Other(format!(
+            "unsupported integrate target: {other} (supported: {})",
+            list_integration_packs().join(", ")
+        ))),
+    }
+}
 
 pub fn integrate_cursor(host_root: &Path) -> Result<Vec<String>> {
     let mut written = Vec::new();
@@ -117,4 +167,18 @@ pub fn integrate_cursor(host_root: &Path) -> Result<Vec<String>> {
         written.push(agents.display().to_string());
     }
     Ok(written)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn fake_pack_writes_marker() {
+        let dir = tempdir().unwrap();
+        let written = integrate_pack("fake", dir.path()).unwrap();
+        assert!(written[0].contains("OK"));
+        assert!(dir.path().join(".porq-integrate-fake/OK").is_file());
+    }
 }

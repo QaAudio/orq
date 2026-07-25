@@ -858,12 +858,9 @@ fn main() -> Result<()> {
             }
         }
         Commands::Integrate { target, path } => {
-            if target != "cursor" {
-                bail!("unsupported integrate target: {target} (supported: cursor)");
-            }
             let root = path.unwrap_or_else(|| PathBuf::from("."));
-            let written = integrate_cursor(&root)?;
-            out(&out_opts, &json!({"written": written}))?;
+            let written = integrate_pack(&target, &root)?;
+            out(&out_opts, &json!({"written": written, "target": target}))?;
         }
         Commands::Dash {
             cmd: DashCmd::Snapshot { out: out_path },
@@ -1053,6 +1050,22 @@ fn handle_canvas(
                 session,
                 None,
                 None,
+            )?;
+            let engine = TriggerEngine::new(store);
+            let mut seen = HashSet::new();
+            engine.process_event(
+                workspace,
+                session,
+                "poi.changed",
+                &json!({
+                    "table": "canvas",
+                    "key": key,
+                    "version": poi.version,
+                    "state": poi.state,
+                    "value": poi.value,
+                }),
+                0,
+                &mut seen,
             )?;
             out(opts, &poi)?;
         }

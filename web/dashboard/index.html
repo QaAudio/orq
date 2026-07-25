@@ -4,9 +4,6 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>porq dashboard</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@600;700&display=swap" rel="stylesheet" />
 <style>
   :root {
     --bg: #141210;
@@ -29,10 +26,14 @@
     --green-dim: #6bbf7a33;
     --yellow: #d4a84b;
     --yellow-dim: #d4a84b33;
+    --orange: #d4844a;
+    --orange-dim: #d4844a33;
+    --purple: #a88bc4;
+    --purple-dim: #a88bc433;
     --red: #e06b5c;
     --red-dim: #e06b5c33;
-    --font-display: "Syne", system-ui, sans-serif;
-    --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+    --font-display: system-ui, "Segoe UI", Roboto, sans-serif;
+    --font-mono: ui-monospace, "Cascadia Code", "Segoe UI Mono", Consolas, monospace;
     --radius: 10px;
     --gap: 1.15rem;
   }
@@ -49,6 +50,13 @@
       radial-gradient(900px 400px at 90% 0%, #1e2a2633 0%, transparent 50%),
       var(--bg);
     color: var(--text);
+  }
+
+  body.drawer-open { overflow: hidden; }
+
+  :focus-visible {
+    outline: 2px solid var(--amber);
+    outline-offset: 2px;
   }
 
   header {
@@ -167,7 +175,13 @@
     animation: pulse 1.6s ease-out infinite;
   }
 
-  #stamp.stale::before { animation: none; background: var(--muted); }
+  #stamp.live::before { background: var(--teal); animation: pulse 1.6s ease-out infinite; }
+  #stamp.stale {
+    border-color: var(--orange-dim);
+    background: var(--orange-dim);
+    color: var(--orange);
+  }
+  #stamp.stale::before { animation: none; background: var(--orange); }
   #stamp.error {
     border-color: var(--red-dim);
     background: var(--red-dim);
@@ -179,6 +193,15 @@
     0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--amber) 55%, transparent); }
     70% { box-shadow: 0 0 0 8px transparent; }
     100% { box-shadow: 0 0 0 0 transparent; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 
   #pulse {
@@ -218,6 +241,23 @@
 
   .pulse-chip strong { color: var(--amber); font-weight: 600; }
 
+  #pulse-daemon {
+    font-size: 0.7rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    border: 1px solid var(--border-soft);
+  }
+  #pulse-daemon.status-done {
+    color: var(--green);
+    border-color: var(--green-dim);
+    background: var(--green-dim);
+  }
+  #pulse-daemon.status-failed {
+    color: var(--red);
+    border-color: var(--red-dim);
+    background: var(--red-dim);
+  }
+
   .pulse-event {
     margin-left: auto;
     color: var(--muted);
@@ -230,6 +270,10 @@
 
   #error {
     display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
     background: var(--red-dim);
     border: 1px solid var(--red);
     color: var(--red);
@@ -237,18 +281,40 @@
     padding: 0.75rem 1rem;
     border-radius: var(--radius);
   }
-  #error.visible { display: block; }
+  #error.visible { display: flex; }
+
+  #error-retry {
+    appearance: none;
+    border: 1px solid var(--red);
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    padding: 0.3rem 0.65rem;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  #error-retry:hover { background: var(--panel-elev); }
 
   #empty-hint {
     display: none;
     color: var(--muted);
     margin: 0.75rem 1.25rem 0;
     font-size: 0.85rem;
+    padding: 0.65rem 0.85rem;
+    border-radius: var(--radius);
+    border: 1px dashed var(--border-soft);
+    background: var(--panel);
   }
   #empty-hint.visible { display: block; }
+  #empty-hint.daemon-down {
+    border-color: var(--red);
+    background: var(--red-dim);
+    color: var(--text);
+  }
   #empty-hint code {
     color: var(--amber);
-    background: var(--panel);
+    background: var(--bg);
     padding: 0.05rem 0.35rem;
     border-radius: 4px;
   }
@@ -322,6 +388,7 @@
     font-size: 0.82rem;
     margin: 0.35rem 0;
   }
+  .placeholder.inline { display: inline; margin: 0; }
 
   .table-wrap {
     max-height: 280px;
@@ -358,11 +425,16 @@
   tbody tr:nth-child(even) { background: color-mix(in srgb, var(--bg) 35%, transparent); }
   tbody tr:hover { background: color-mix(in srgb, var(--amber) 8%, transparent); }
 
+  tr.task-row { cursor: pointer; }
+  tr.task-row:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
+
   td code, .mono {
     font-family: var(--font-mono);
     font-size: 0.76rem;
     color: var(--muted);
   }
+
+  .cmd-cell { max-width: 14rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   .pill {
     display: inline-block;
@@ -371,14 +443,77 @@
     font-size: 0.7rem;
     font-weight: 500;
     line-height: 1.35;
+    border: 1px solid transparent;
   }
 
-  .done { background: var(--green-dim); color: var(--green); }
-  .running, .queued, .starting, .reconciling, .planned, .live { background: var(--yellow-dim); color: var(--yellow); }
-  .failed, .cancelled, .killed { background: var(--red-dim); color: var(--red); }
-  .pending, .blocked, .ready, .complete, .aggregated, .proposed, .approved, .archived { background: var(--teal-dim); color: var(--teal); }
+  .status-done { background: var(--green-dim); color: var(--green); border-color: color-mix(in srgb, var(--green) 25%, transparent); }
+  .status-active { background: var(--yellow-dim); color: var(--yellow); border-color: color-mix(in srgb, var(--yellow) 25%, transparent); }
+  .status-waiting { background: var(--blue-dim); color: var(--blue); border-color: color-mix(in srgb, var(--blue) 25%, transparent); }
+  .status-blocked { background: var(--orange-dim); color: var(--orange); border-color: color-mix(in srgb, var(--orange) 35%, transparent); }
+  .status-failed { background: var(--red-dim); color: var(--red); border-color: color-mix(in srgb, var(--red) 25%, transparent); }
+  .status-proposed { background: var(--purple-dim); color: var(--purple); border-color: color-mix(in srgb, var(--purple) 25%, transparent); }
+  .status-approved { background: var(--teal-dim); color: var(--teal); border-color: color-mix(in srgb, var(--teal) 25%, transparent); }
+  .status-muted { background: color-mix(in srgb, var(--muted) 15%, transparent); color: var(--muted); }
 
   .wide { grid-column: 1 / -1; }
+
+  .ops-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .ops-card {
+    background: var(--bg);
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    padding: 0.65rem 0.75rem;
+    min-width: 0;
+  }
+
+  .ops-card.ops-wide { grid-column: 1 / -1; }
+
+  .ops-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .ops-label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 0.35rem;
+  }
+
+  .ops-head .ops-label { margin-bottom: 0; }
+
+  .ops-value { min-width: 0; }
+
+  .chip-row, .file-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .mini-chip, .file-chip {
+    font-size: 0.72rem;
+    color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--border-soft);
+    padding: 0.2rem 0.45rem;
+    border-radius: 6px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .file-grid { max-height: 200px; overflow: auto; }
+  .file-chip:hover { border-color: var(--teal); color: var(--teal); }
 
   .event-list {
     display: flex;
@@ -418,6 +553,7 @@
   .event-row.fam-route::before { background: var(--blue); }
   .event-row.fam-affinity::before,
   .event-row.fam-model::before { background: var(--gold); }
+  .event-row.fam-trigger::before { background: var(--orange); }
 
   .event-row:hover {
     background: var(--panel-elev);
@@ -450,6 +586,7 @@
   .event-row.fam-route .event-kind { background: var(--blue-dim); border-color: transparent; color: var(--blue); }
   .event-row.fam-affinity .event-kind,
   .event-row.fam-model .event-kind { background: var(--gold-dim); border-color: transparent; color: var(--gold); }
+  .event-row.fam-trigger .event-kind { background: var(--orange-dim); border-color: transparent; color: var(--orange); }
 
   .event-payload {
     color: var(--muted);
@@ -464,29 +601,6 @@
     white-space: nowrap;
     padding-top: 0.15rem;
   }
-
-  .file-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    max-height: 200px;
-    overflow: auto;
-  }
-
-  .file-chip {
-    font-size: 0.72rem;
-    color: var(--text);
-    background: var(--bg);
-    border: 1px solid var(--border-soft);
-    padding: 0.25rem 0.5rem;
-    border-radius: 6px;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .file-chip:hover { border-color: var(--teal); color: var(--teal); }
 
   .canvas-grid {
     display: grid;
@@ -604,6 +718,149 @@
     padding: 0.1rem 0.4rem;
     border-radius: 4px;
   }
+
+  .drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    background: color-mix(in srgb, var(--bg) 55%, transparent);
+    z-index: 40;
+  }
+  .drawer-backdrop.hidden { display: none; }
+
+  .task-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: min(480px, 100vw);
+    height: 100vh;
+    z-index: 50;
+    background: var(--panel-elev);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    box-shadow: -8px 0 24px #00000055;
+  }
+  .task-drawer.hidden { display: none; }
+
+  .drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--border-soft);
+    background: var(--panel);
+  }
+
+  #drawer-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #drawer-close {
+    appearance: none;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  #drawer-close:hover { color: var(--text); border-color: var(--amber); }
+
+  #drawer-body {
+    flex: 1;
+    overflow: auto;
+    padding: 0.85rem 1rem 1.25rem;
+  }
+
+  .drawer-section { margin-bottom: 1rem; }
+
+  .drawer-field {
+    display: grid;
+    grid-template-columns: 7.5rem 1fr;
+    gap: 0.5rem 0.75rem;
+    padding: 0.35rem 0;
+    border-bottom: 1px solid var(--border-soft);
+  }
+
+  .drawer-label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    padding-top: 0.15rem;
+  }
+
+  .drawer-value {
+    min-width: 0;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    word-break: break-word;
+  }
+
+  .drawer-cmd {
+    margin: 0 0 0.45rem;
+    padding: 0.55rem 0.65rem;
+    background: var(--bg);
+    border: 1px solid var(--border-soft);
+    border-radius: 6px;
+    font-size: 0.74rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 8rem;
+    overflow: auto;
+  }
+
+  .drawer-log {
+    margin: 0.55rem 0 0;
+    padding: 0.55rem 0.65rem;
+    background: var(--bg);
+    border: 1px solid var(--border-soft);
+    border-radius: 6px;
+    font-size: 0.72rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 16rem;
+    overflow: auto;
+    color: var(--muted);
+  }
+
+  .copy-btn, .ghost-btn, .linkish {
+    appearance: none;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    padding: 0.22rem 0.5rem;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-top: 0.25rem;
+  }
+
+  .linkish {
+    display: inline;
+    border: 0;
+    background: transparent;
+    color: var(--blue);
+    padding: 0;
+    margin: 0 0.25rem 0 0;
+    text-decoration: underline;
+  }
+  .linkish:hover { color: var(--amber); }
+
+  .ghost-btn:hover, .copy-btn:hover { border-color: var(--amber); color: var(--amber); }
+  .ghost-btn:disabled, .copy-btn:disabled { opacity: 0.6; cursor: default; }
 </style>
 </head>
 <body>
@@ -632,25 +889,35 @@
   </nav>
   <div class="header-meta">
     <span id="workspace">workspace —</span>
-    <span id="stamp">connecting…</span>
+    <span id="stamp" aria-live="polite">connecting…</span>
   </div>
 </header>
 <div id="pulse" title="Open Details view" role="button" tabindex="0">
   <span class="pulse-dot" aria-hidden="true"></span>
+  <span id="pulse-daemon" aria-live="polite">daemon —</span>
   <span class="pulse-chip"><strong id="pulse-tasks">0</strong> tasks</span>
   <span class="pulse-chip"><strong id="pulse-pois">0</strong> pois</span>
   <span class="pulse-chip"><strong id="pulse-jobs">0</strong> jobs</span>
   <span class="pulse-chip"><strong id="pulse-events">0</strong> events</span>
   <span class="pulse-event" id="pulse-event">waiting for pulse…</span>
 </div>
-<div id="error" role="alert"></div>
-<div id="empty-hint">No rows yet — seed data with <code>porq</code> or wait for snapshot refresh.</div>
+<div id="error" role="alert">
+  <span id="error-msg"></span>
+  <button type="button" id="error-retry">Retry</button>
+</div>
+<div id="empty-hint" role="status"></div>
 
 <div id="view-canvases" class="view active" role="tabpanel">
   <div id="canvases"><p class="placeholder">loading…</p></div>
 </div>
 
 <main id="view-details" class="view" role="tabpanel">
+  <section class="wide">
+    <div class="section-head">
+      <h2>Loop ops</h2>
+    </div>
+    <div class="panel-body" id="ops-health"><p class="placeholder">loading…</p></div>
+  </section>
   <section>
     <div class="section-head">
       <h2>Board (POIs)</h2>
@@ -694,6 +961,16 @@
     <div class="panel-body" id="files"><p class="placeholder">loading…</p></div>
   </section>
 </main>
+
+<div id="drawer-backdrop" class="drawer-backdrop hidden" aria-hidden="true"></div>
+<aside id="task-drawer" class="task-drawer hidden" aria-labelledby="drawer-title" aria-hidden="true" role="dialog">
+  <div class="drawer-header">
+    <h3 id="drawer-title">Task</h3>
+    <button type="button" id="drawer-close" aria-label="Close task details">Close</button>
+  </div>
+  <div id="drawer-body"></div>
+</aside>
+
 <script src="app.js"></script>
 </body>
 </html>

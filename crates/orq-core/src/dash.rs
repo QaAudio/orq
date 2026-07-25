@@ -35,6 +35,33 @@ pub fn build_snapshot(
     let files = list_workspace_files(store, workspace, 80)?;
     let canvases = list_canvases(store, workspace, session, row_limit)?;
 
+    // Best-effort enrichment (G3): everything below is read from store APIs
+    // that already exist for other commands — none of this is authoritative
+    // state, it's display-only context for the dashboard (mirrors the same
+    // "POIs are display, not authorization" posture as PORQ_LOOP_SCHEMA.md §9).
+    let leases = store.list_leases(workspace).unwrap_or_default();
+    let triggers = store.list_triggers(workspace).unwrap_or_default();
+    let blocked_pois = store.list_blocked_pois(workspace, row_limit).unwrap_or_default();
+    let models = store.list_models(workspace).unwrap_or_default();
+    // Most recent trigger action failures, independent of the main `events`
+    // feed's oldest-first cap (a workspace with >100 lifetime events would
+    // otherwise never surface a fresh failure there).
+    let trigger_failures = store
+        .list_recent_events_by_kind(workspace, "trigger.action_error", 20)
+        .unwrap_or_default();
+    let active_sessions: Vec<String> = {
+        let mut seen = std::collections::BTreeSet::new();
+        for t in &tasks {
+            if !t.status.is_terminal() {
+                if let Some(s) = &t.session {
+                    seen.insert(s.clone());
+                }
+            }
+        }
+        seen.into_iter().collect()
+    };
+    let daemon_running = crate::daemon::is_daemon_running(&store.data_dir);
+
     Ok(json!({
         "updated": Utc::now().to_rfc3339(),
         "workspace": workspace,
@@ -42,9 +69,18 @@ pub fn build_snapshot(
         "tasks": tasks,
         "jobs": jobs,
         "affinities": affinities,
+        "models": models,
         "events": events,
         "files": files,
         "canvases": canvases,
+        "leases": leases,
+        "triggers": triggers,
+        "blocked_pois": blocked_pois,
+        "trigger_failures": trigger_failures,
+        "active_sessions": active_sessions,
+        "daemon": {
+            "running": daemon_running,
+        },
     }))
 }
 
@@ -195,19 +231,75 @@ mod tests {
             "tasks",
             "jobs",
             "affinities",
+            "models",
             "events",
             "files",
             "canvases",
+            "leases",
+            "triggers",
+            "blocked_pois",
+            "trigger_failures",
+            "active_sessions",
+            "daemon",
         ] {
             assert!(snap.get(key).is_some(), "missing key {key}");
         }
         assert!(snap["canvases"].as_array().unwrap().is_empty());
         let board = snap["board"].as_array().unwrap();
         assert!(board.iter().any(|p| p["key"] == "alpha"));
+        assert!(snap["daemon"]["running"].is_boolean());
+        assert!(snap["leases"].as_array().unwrap().is_empty());
+        assert!(snap["blocked_pois"].as_array().unwrap().is_empty());
 
         let out = dir.path().join("dash").join("data.json");
         write_snapshot_atomic(&out, &snap).unwrap();
         let loaded: Value = serde_json::from_str(&fs::read_to_string(&out).unwrap()).unwrap();
         assert_eq!(loaded["workspace"], "default");
+    }
+
+    #[test]
+    fn snapshot_reports_blocked_pois_and_leases() {
+        let dir = tempdir().unwrap();
+        let store = Store::open(dir.path()).unwrap();
+        store.ensure_workspace("default", None).unwrap();
+        store
+            .create_poi_table("default", "board", "generic", vec![])
+            .unwrap();
+        store
+            .set_poi(
+                "default",
+                "board",
+                "stuck",
+                json!({"note": "blocked row"}),
+                Default::default(),
+                Some("pending"),
+                StorageTier::Ephemeral,
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+        store
+            .set_poi_blocked("default", "board", "stuck", true, Some("waiting on human"))
+            .unwrap();
+        store
+            .acquire_lease(
+                "default",
+                "board",
+                "stuck",
+                crate::types::LeaseKind::Write,
+                "agent-1",
+                "in progress",
+                60,
+            )
+            .unwrap();
+
+        let snap = build_snapshot(&store, "default", None, 50).unwrap();
+        let blocked = snap["blocked_pois"].as_array().unwrap();
+        assert_eq!(blocked.len(), 1);
+        assert_eq!(blocked[0]["key"], "stuck");
+        let leases = snap["leases"].as_array().unwrap();
+        assert_eq!(leases.len(), 1);
+        assert_eq!(leases[0]["holder"], "agent-1");
     }
 }

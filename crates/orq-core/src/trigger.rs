@@ -104,7 +104,16 @@ impl<'a> TriggerEngine<'a> {
             )?;
 
             for action in &rule.actions {
-                match self.execute_action(workspace, session, action, rule.blocking, depth, seen) {
+                match self.execute_action(
+                    workspace,
+                    session,
+                    kind,
+                    payload,
+                    action,
+                    rule.blocking,
+                    depth,
+                    seen,
+                ) {
                     Ok(()) => {}
                     Err(e) if rule.blocking => return Err(e),
                     Err(e) => {
@@ -125,6 +134,8 @@ impl<'a> TriggerEngine<'a> {
         &self,
         workspace: &str,
         session: Option<&str>,
+        event_kind: &str,
+        payload: &serde_json::Value,
         action: &TriggerAction,
         blocking: bool,
         depth: u32,
@@ -212,14 +223,21 @@ impl<'a> TriggerEngine<'a> {
                     .as_deref()
                     .and_then(TaskKind::parse)
                     .unwrap_or(TaskKind::Oneshot);
+                let expanded_cmd = expand_event_template(command, event_kind, payload);
+                let expanded_name = name
+                    .as_ref()
+                    .map(|n| expand_event_template(n, event_kind, payload))
+                    .unwrap_or_else(|| "triggered".into());
+                let command_with_env =
+                    inject_event_env(&expanded_cmd, event_kind, payload);
                 let task = Task {
                     id: new_id(),
                     workspace: workspace.into(),
                     session: session.map(|s| s.to_string()),
-                    name: name.clone().unwrap_or_else(|| "triggered".into()),
+                    name: expanded_name,
                     kind: task_kind,
                     status: TaskStatus::Queued,
-                    command: command.clone(),
+                    command: command_with_env,
                     cwd: Some(ws.root.clone()),
                     profile: "shell".into(),
                     claims: vec![],
@@ -248,15 +266,40 @@ impl<'a> TriggerEngine<'a> {
                     workspace,
                     session,
                     "task.queued_by_trigger",
-                    json!({ "id": task.id, "command": command }),
+                    json!({
+                        "id": task.id,
+                        "command": task.command,
+                        "event": event_kind,
+                        "payload": payload,
+                    }),
                 )?;
             }
             TriggerAction::RunHook { command } => {
-                let status = run_hook(command, HOOK_TIMEOUT_SECS)?;
-                if !status.success() {
-                    let msg = format!("hook failed: {command} (exit {:?})", status.code());
-                    if blocking {
-                        return Err(OrqError::TriggerVeto(msg));
+                let expanded = expand_event_template(command, event_kind, payload);
+                match run_hook(&expanded, HOOK_TIMEOUT_SECS)? {
+                    HookOutcome::Success(status) if status.success() => {}
+                    HookOutcome::Success(status) => {
+                        let msg = format!(
+                            "hook failed: {expanded} (exit {:?})",
+                            status.code()
+                        );
+                        if blocking {
+                            return Err(OrqError::TriggerVeto(msg));
+                        }
+                    }
+                    HookOutcome::Timeout => {
+                        let msg = format!(
+                            "hook timed out after {HOOK_TIMEOUT_SECS}s: {expanded}"
+                        );
+                        if blocking {
+                            return Err(OrqError::TriggerVeto(msg));
+                        }
+                        self.store.append_event(
+                            workspace,
+                            session,
+                            "trigger.action_error",
+                            json!({ "error": msg }),
+                        )?;
                     }
                 }
             }
@@ -280,6 +323,21 @@ fn pattern_matches(pattern: &str, kind: &str) -> bool {
 }
 
 fn condition_matches(cond: &str, payload: &serde_json::Value) -> bool {
+    let parts: Vec<&str> = cond
+        .split("&&")
+        .map(|p| p.trim())
+        .filter(|p| !p.is_empty())
+        .collect();
+    if parts.is_empty() {
+        return cond.is_empty() || cond == "*";
+    }
+    parts.iter().all(|part| single_condition_matches(part, payload))
+}
+
+fn single_condition_matches(cond: &str, payload: &serde_json::Value) -> bool {
+    if cond == "*" {
+        return true;
+    }
     if let Some(rest) = cond.strip_prefix("state==") {
         let expected = rest.trim().trim_matches('"').trim_matches('\'');
         return payload
@@ -304,6 +362,14 @@ fn condition_matches(cond: &str, payload: &serde_json::Value) -> bool {
             .map(|s| s == expected)
             .unwrap_or(false);
     }
+    if let Some(rest) = cond.strip_prefix("name^=") {
+        let expected = rest.trim().trim_matches('"').trim_matches('\'');
+        return payload
+            .get("name")
+            .and_then(|v| v.as_str())
+            .map(|s| s.starts_with(expected))
+            .unwrap_or(false);
+    }
     if let Some(rest) = cond.strip_prefix("key==") {
         let expected = rest.trim().trim_matches('"').trim_matches('\'');
         return payload
@@ -312,8 +378,23 @@ fn condition_matches(cond: &str, payload: &serde_json::Value) -> bool {
             .map(|s| s == expected)
             .unwrap_or(false);
     }
-    // empty condition = match all
-    cond.is_empty() || cond == "*"
+    if let Some(rest) = cond.strip_prefix("key^=") {
+        let expected = rest.trim().trim_matches('"').trim_matches('\'');
+        return payload
+            .get("key")
+            .and_then(|v| v.as_str())
+            .map(|s| s.starts_with(expected))
+            .unwrap_or(false);
+    }
+    if let Some(rest) = cond.strip_prefix("table==") {
+        let expected = rest.trim().trim_matches('"').trim_matches('\'');
+        return payload
+            .get("table")
+            .and_then(|v| v.as_str())
+            .map(|s| s == expected)
+            .unwrap_or(false);
+    }
+    false
 }
 
 fn selector_matches(selector: &str, task: &Task) -> bool {
@@ -329,20 +410,118 @@ fn selector_matches(selector: &str, task: &Task) -> bool {
     task.name.contains(selector) || task.id.starts_with(selector)
 }
 
-fn run_hook(command: &str, _timeout_secs: u64) -> Result<std::process::ExitStatus> {
+fn payload_str(payload: &serde_json::Value, key: &str) -> String {
+    payload
+        .get(key)
+        .and_then(|v| {
+            v.as_str()
+                .map(|s| s.to_string())
+                .or_else(|| Some(v.to_string().trim_matches('"').to_string()))
+        })
+        .unwrap_or_default()
+}
+
+fn expand_event_template(template: &str, event_kind: &str, payload: &serde_json::Value) -> String {
+    template
+        .replace("{event}", event_kind)
+        .replace("{id}", &payload_str(payload, "id"))
+        .replace("{name}", &payload_str(payload, "name"))
+        .replace("{table}", &payload_str(payload, "table"))
+        .replace("{key}", &payload_str(payload, "key"))
+        .replace("{version}", &payload_str(payload, "version"))
+        .replace("{state}", &payload_str(payload, "state"))
+        .replace("{exit_code}", &payload_str(payload, "exit_code"))
+}
+
+fn inject_event_env(command: &str, event_kind: &str, payload: &serde_json::Value) -> String {
+    let pairs = [
+        ("ORQ_EVENT", event_kind.to_string()),
+        ("ORQ_EVENT_ID", payload_str(payload, "id")),
+        ("ORQ_EVENT_NAME", payload_str(payload, "name")),
+        ("ORQ_EVENT_TABLE", payload_str(payload, "table")),
+        ("ORQ_EVENT_KEY", payload_str(payload, "key")),
+        ("ORQ_EVENT_VERSION", payload_str(payload, "version")),
+        ("ORQ_EVENT_STATE", payload_str(payload, "state")),
+        ("ORQ_EVENT_EXIT_CODE", payload_str(payload, "exit_code")),
+    ];
     #[cfg(windows)]
-    let mut cmd = {
+    {
+        let mut prefix = String::new();
+        for (k, v) in pairs {
+            if v.is_empty() {
+                continue;
+            }
+            // Escape quotes in values for cmd set
+            let safe = v.replace('"', "");
+            prefix.push_str(&format!("set \"{k}={safe}\"&& "));
+        }
+        format!("{prefix}{command}")
+    }
+    #[cfg(not(windows))]
+    {
+        let mut prefix = String::new();
+        for (k, v) in pairs {
+            if v.is_empty() {
+                continue;
+            }
+            let safe = v.replace('\'', "'\\''");
+            prefix.push_str(&format!("{k}='{safe}' "));
+        }
+        format!("{prefix}{command}")
+    }
+}
+
+enum HookOutcome {
+    Success(std::process::ExitStatus),
+    Timeout,
+}
+
+fn run_hook(command: &str, timeout_secs: u64) -> Result<HookOutcome> {
+    #[cfg(windows)]
+    let mut child = {
         let mut c = Command::new("cmd");
         c.args(["/C", command]);
-        c
+        c.spawn().map_err(OrqError::from)?
     };
     #[cfg(not(windows))]
-    let mut cmd = {
+    let mut child = {
         let mut c = Command::new("sh");
         c.args(["-c", command]);
-        c
+        c.spawn().map_err(OrqError::from)?
     };
-    cmd.status().map_err(OrqError::from)
+
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(timeout_secs);
+    loop {
+        match child.try_wait().map_err(OrqError::from)? {
+            Some(status) => return Ok(HookOutcome::Success(status)),
+            None if std::time::Instant::now() >= deadline => {
+                let pid = child.id();
+                terminate_process_tree(pid);
+                let _ = child.kill();
+                let _ = child.wait();
+                return Ok(HookOutcome::Timeout);
+            }
+            None => std::thread::sleep(std::time::Duration::from_millis(50)),
+        }
+    }
+}
+
+fn terminate_process_tree(pid: u32) {
+    #[cfg(windows)]
+    {
+        let _ = Command::new("taskkill")
+            .args(["/F", "/T", "/PID", &pid.to_string()])
+            .output();
+    }
+    #[cfg(unix)]
+    {
+        let _ = Command::new("kill")
+            .args(["-9", &format!("-{pid}")])
+            .output();
+        let _ = Command::new("kill")
+            .args(["-9", &pid.to_string()])
+            .output();
+    }
 }
 
 #[cfg(test)]
@@ -460,5 +639,37 @@ mod tests {
 
         let tasks = store.list_tasks("default", None, 50).unwrap();
         assert!(tasks.iter().any(|t| t.name == "remediation"));
+    }
+
+    #[test]
+    fn condition_prefix_and_table_and_combo() {
+        let payload = json!({
+            "name": "exec-gate-u1",
+            "key": "proposal-42",
+            "table": "roadmap-proposals",
+            "state": "proposed"
+        });
+        assert!(condition_matches("name^=exec-", &payload));
+        assert!(!condition_matches("name^=review-", &payload));
+        assert!(condition_matches("key^=proposal-", &payload));
+        assert!(condition_matches("table==roadmap-proposals", &payload));
+        assert!(condition_matches(
+            "table==roadmap-proposals && state==proposed",
+            &payload
+        ));
+        assert!(!condition_matches(
+            "table==roadmap-proposals && state==approved",
+            &payload
+        ));
+    }
+
+    #[test]
+    fn expand_event_template_fills_fields() {
+        let out = expand_event_template(
+            "echo {event} {id} {name} {table}/{key}",
+            "task.done",
+            &json!({"id":"t1","name":"exec-a","table":"board","key":"k1"}),
+        );
+        assert_eq!(out, "echo task.done t1 exec-a board/k1");
     }
 }

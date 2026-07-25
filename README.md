@@ -56,6 +56,14 @@ html) from that store.
 
 Related ideas: Pueue, Temporal, Restate, Taskwarrior, Hatchet.
 
+### Showcase
+
+Concrete consumer walkthrough (leases, checks, review veto, human-gated
+roadmap proposals — domain scripts stay outside porq core):
+
+- [td-rs autonomous loop](docs/usecases/td-rs-autonomous-loop.md)
+- Screenshots: [`docs/img/usecases/`](docs/img/usecases/) (captured after visual acceptance)
+
 ---
 
 ## Install

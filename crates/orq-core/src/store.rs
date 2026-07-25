@@ -487,6 +487,38 @@ impl Store {
         Ok(rows)
     }
 
+    /// Most-recent-first events matching an exact `kind` (dashboard snapshot
+    /// use, e.g. `trigger.action_error`) — unlike `list_events`, which is
+    /// oldest-first with a hard cap and can miss recent rows once a
+    /// workspace has produced more than `limit` events overall.
+    pub fn list_recent_events_by_kind(
+        &self,
+        workspace: &str,
+        kind: &str,
+        limit: usize,
+    ) -> Result<Vec<OrqEvent>> {
+        let limit = limit.clamp(1, 200);
+        let conn = self.conn()?;
+        let mut stmt = conn.prepare(
+            "SELECT id, workspace, session, kind, payload, created_at FROM events WHERE workspace=?1 AND kind=?2 ORDER BY id DESC LIMIT ?3",
+        )?;
+        let rows = stmt
+            .query_map(params![workspace, kind, limit as i64], |r| {
+                let payload: String = r.get(4)?;
+                Ok(OrqEvent {
+                    id: r.get(0)?,
+                    workspace: r.get(1)?,
+                    session: r.get(2)?,
+                    kind: r.get(3)?,
+                    payload: serde_json::from_str(&payload).unwrap_or(json!({})),
+                    created_at: parse_dt(&r.get::<_, String>(5)?),
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(rows)
+    }
+
     pub fn create_poi_table(
         &self,
         workspace: &str,
@@ -846,6 +878,47 @@ impl Store {
     pub fn release_leases_for_holder(&self, holder: &str) -> Result<()> {
         self.conn()?.execute("DELETE FROM leases WHERE holder=?1", params![holder])?;
         Ok(())
+    }
+
+    /// All non-expired leases for a workspace (dashboard snapshot use), newest
+    /// expiry last so a UI can show soonest-to-expire first by reversing.
+    pub fn list_leases(&self, workspace: &str) -> Result<Vec<Lease>> {
+        let conn = self.conn()?;
+        let mut stmt = conn.prepare(
+            "SELECT id, workspace, table_name, key, kind, holder, reason, expires_at FROM leases WHERE workspace=?1 AND expires_at > ?2 ORDER BY expires_at ASC",
+        )?;
+        let rows = stmt
+            .query_map(params![workspace, Utc::now().to_rfc3339()], |r| {
+                Ok(Lease {
+                    id: r.get(0)?,
+                    workspace: r.get(1)?,
+                    table: r.get(2)?,
+                    key: r.get(3)?,
+                    kind: LeaseKind::parse(&r.get::<_, String>(4)?).unwrap_or(LeaseKind::Write),
+                    holder: r.get(5)?,
+                    reason: r.get(6)?,
+                    expires_at: parse_dt(&r.get::<_, String>(7)?),
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(rows)
+    }
+
+    /// Blocked POI rows across every table in a workspace (dashboard snapshot
+    /// use) — `pois` is a single physical table with a `table_name` column,
+    /// so this is one query, not a fan-out over `list_poi_tables`.
+    pub fn list_blocked_pois(&self, workspace: &str, limit: usize) -> Result<Vec<Poi>> {
+        let limit = limit.clamp(1, 500);
+        let conn = self.conn()?;
+        let mut stmt = conn.prepare(
+            "SELECT workspace, table_name, key, session, value_json, columns_json, state, version, tier, blocked, blocker_reason, updated_at FROM pois WHERE workspace=?1 AND blocked=1 ORDER BY updated_at DESC LIMIT ?2",
+        )?;
+        let rows = stmt
+            .query_map(params![workspace, limit as i64], |r| Ok(row_to_poi(r)))?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(rows)
     }
 
     pub fn insert_task(&self, task: &Task) -> Result<()> {
