@@ -821,6 +821,15 @@
     }
   });
 
+  const themeSelect = document.getElementById("theme-select");
+  if (themeSelect && window.__porqTheme) {
+    const cur = window.__porqTheme.get();
+    if (cur && cur !== "custom") themeSelect.value = cur;
+    themeSelect.addEventListener("change", () => {
+      window.__porqTheme.set(themeSelect.value);
+    });
+  }
+
   document.getElementById("drawer-close")?.addEventListener("click", closeTaskDrawer);
   document.getElementById("drawer-backdrop")?.addEventListener("click", closeTaskDrawer);
   document.addEventListener("keydown", (e) => {

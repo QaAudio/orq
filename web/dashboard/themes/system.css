@@ -1,0 +1,60 @@
+/* porq theme: system — follows prefers-color-scheme */
+:root {
+  --bg: #f4f1ea;
+  --bg-wash: #ebe6dc;
+  --panel: #ffffff;
+  --panel-elev: #faf8f4;
+  --border: #c9c0b0;
+  --border-soft: #ddd5c8;
+  --text: #1c1916;
+  --muted: #6b6358;
+  --accent: #b8791d;
+  --accent-dim: #b8791d22;
+  --ok: #2f8f4e;
+  --ok-dim: #2f8f4e22;
+  --warn: #c46a2b;
+  --warn-dim: #c46a2b22;
+  --danger: #c4473a;
+  --danger-dim: #c4473a22;
+  --info: #3a7a9a;
+  --info-dim: #3a7a9a22;
+  --proposed: #7a5f9a;
+  --proposed-dim: #7a5f9a22;
+  --approved: #2a8f7a;
+  --approved-dim: #2a8f7a22;
+  --font-display: system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "Segoe UI Mono", Consolas, monospace;
+  --radius: 8px;
+  --gap: 0.85rem;
+  --scroll-thumb: #b0a694;
+  --scroll-thumb-hover: color-mix(in srgb, var(--accent) 40%, #b0a694);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #12100e;
+    --bg-wash: #181510;
+    --panel: #1a1714;
+    --panel-elev: #211e1a;
+    --border: #3a342c;
+    --border-soft: #2a2520;
+    --text: #f2ebe3;
+    --muted: #9a9084;
+    --accent: #e8a838;
+    --accent-dim: #e8a83833;
+    --ok: #6bbf7a;
+    --ok-dim: #6bbf7a33;
+    --warn: #d4844a;
+    --warn-dim: #d4844a33;
+    --danger: #e06b5c;
+    --danger-dim: #e06b5c33;
+    --info: #6a9fbf;
+    --info-dim: #6a9fbf33;
+    --proposed: #a88bc4;
+    --proposed-dim: #a88bc433;
+    --approved: #3db8a0;
+    --approved-dim: #3db8a033;
+    --scroll-thumb: #4a433a;
+    --scroll-thumb-hover: color-mix(in srgb, var(--accent) 40%, #4a433a);
+  }
+}

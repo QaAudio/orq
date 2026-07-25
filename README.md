@@ -25,7 +25,7 @@ share across machines   →  + --remote (Turso/libSQL)
   <img src="docs/img/usecases/porq-demo-canvases.png" alt="porq Canvases — td-rs loop health, roadmap, checks, review" width="920" />
 </p>
 
-<p align="center"><sub><strong>Real consumer board</strong> — Canvases from the td-rs autonomous-loop workspace (<code>tdrs-loop</code>). Health green, roadmap on handoff, review veto visible. <a href="docs/usecases/td-rs-autonomous-loop.md">Full walkthrough</a> · <a href="docs/img/usecases/porq-demo-details.png">Details view</a></sub></p>
+<p align="center"><sub><strong>Real consumer board</strong> — Canvases from the td-rs autonomous-loop workspace (<code>tdrs-loop</code>). Health green, roadmap on handoff, review veto visible. Default theme. <a href="docs/usecases/td-rs-autonomous-loop.md">Full walkthrough</a> · <a href="docs/img/usecases/porq-demo-details.png">Details view</a> · <a href="docs/img/usecases/porq-demo-dracula.png">dracula still</a></sub></p>
 
 <p align="center">
   <img src="docs/img/dashboard.gif" alt="porq dashboard — Canvases and Details views" width="920" />
@@ -297,6 +297,17 @@ porq dash serve --port 9847        # static UI + /data.json (1s refresh)
 
 Override static root with `--root` or `ORQ_DASH_ROOT`.
 
+### Themes (opt-in)
+
+Zero flags keeps the current warm-dark **default**. Optional packs: `dracula`, `system` (light + `prefers-color-scheme`).
+
+- CLI: `porq dash serve --theme dracula` or `--theme-file ./my.css`
+- Env: `ORQ_DASH_THEME` / `ORQ_DASH_THEME_FILE`
+- Header picker persists `porq.dash.theme` (observe-only preference)
+- Precedence: `?theme=` → theme-file → `--theme`/env → localStorage → `default`
+
+Variable catalog + how to add a pack: [`web/dashboard/themes/README.md`](web/dashboard/themes/README.md). Canvas authoring: [`docs/canvas-authoring.md`](docs/canvas-authoring.md).
+
 ### Two views
 
 - **Canvases** (primary, default) — agent-published markdown / image / url / html cards.
@@ -304,7 +315,7 @@ Override static root with `--root` or `ORQ_DASH_ROOT`.
 - **Pulse strip** — counts + latest event; click to open Details.
 
 Tab choice persists in `localStorage`. Regenerate README images with
-`cd web && npm run capture:readme` (writes `dashboard.png`, `dashboard-details.png`, and `dashboard.gif`).
+`cd web && npm run capture:readme` (writes `dashboard.png`, `dashboard-details.png`, `dashboard.gif`, and a small `usecases/porq-demo-dracula.png`).
 
 ### Canvases (display protocol v1)
 

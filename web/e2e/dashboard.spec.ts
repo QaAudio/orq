@@ -128,4 +128,32 @@ test.describe("porq dashboard", () => {
     await expect(page.locator("#error")).not.toHaveClass(/visible/);
     await expect(page.locator("#events .event-row").first()).toBeVisible();
   });
+
+  test("theme stylesheet + picker sets data-theme", async ({ page }) => {
+    await page.addInitScript(() => {
+      try {
+        localStorage.removeItem("porq.dash.theme");
+      } catch {
+        /* ignore */
+      }
+    });
+    await page.goto(baseURL + "/");
+    await expect(page.locator("#stamp")).not.toHaveText("connecting…", {
+      timeout: 10_000,
+    });
+
+    const baseLink = page.locator('link[href="/themes/base.css"]');
+    await expect(baseLink).toHaveCount(1);
+    const pack = page.locator("#theme-pack");
+    await expect(pack).toHaveAttribute("href", /\/themes\/.+\.css/);
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "default");
+
+    await page.locator("#theme-select").selectOption("dracula");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dracula");
+    await expect(pack).toHaveAttribute("href", "/themes/dracula.css");
+
+    await page.locator("#theme-select").selectOption("system");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "system");
+    await expect(pack).toHaveAttribute("href", "/themes/system.css");
+  });
 });

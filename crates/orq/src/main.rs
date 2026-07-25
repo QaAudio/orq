@@ -205,6 +205,12 @@ enum DashCmd {
         root: Option<PathBuf>,
         #[arg(long)]
         out: Option<PathBuf>,
+        /// Curated pack: default | dracula | system (env: ORQ_DASH_THEME)
+        #[arg(long)]
+        theme: Option<String>,
+        /// Custom CSS file of the same variables (env: ORQ_DASH_THEME_FILE)
+        #[arg(long)]
+        theme_file: Option<PathBuf>,
     },
 }
 
@@ -542,10 +548,18 @@ fn main() -> Result<()> {
             return Ok(());
         }
         Commands::Dash {
-            cmd: DashCmd::Serve { port, root, out },
+            cmd: DashCmd::Serve {
+                port,
+                root,
+                out,
+                theme,
+                theme_file,
+            },
         } => {
             store.ensure_workspace(&cli.workspace, None)?;
             let root = dash_serve::resolve_dash_root(root.clone());
+            let theme_opts =
+                dash_serve::resolve_theme_opts(theme.clone(), theme_file.clone())?;
             dash_serve::run_serve(
                 Arc::new(store),
                 cli.workspace.clone(),
@@ -554,6 +568,7 @@ fn main() -> Result<()> {
                 *port,
                 root,
                 out.clone(),
+                theme_opts,
             )?;
             return Ok(());
         }

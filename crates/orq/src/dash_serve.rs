@@ -29,6 +29,149 @@ pub fn resolve_dash_root(explicit: Option<PathBuf>) -> PathBuf {
     PathBuf::from("web/dashboard")
 }
 
+/// Theme selection for `dash serve` (CLI / env). Query + localStorage apply in the browser.
+#[derive(Debug, Clone, Default)]
+pub struct DashThemeOpts {
+    /// Curated pack name: `default`, `dracula`, `system`. Ignored when `theme_file` is set.
+    pub theme: String,
+    /// Custom CSS file (same CSS variables). Served as `/themes/custom.css`.
+    pub theme_file: Option<PathBuf>,
+}
+
+pub fn resolve_theme_opts(cli_theme: Option<String>, cli_theme_file: Option<PathBuf>) -> Result<DashThemeOpts> {
+    let theme_file = cli_theme_file.or_else(|| {
+        std::env::var("ORQ_DASH_THEME_FILE")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .map(PathBuf::from)
+    });
+    if let Some(ref path) = theme_file {
+        if !path.is_file() {
+            bail!("theme file not found: {}", path.display());
+        }
+        return Ok(DashThemeOpts {
+            theme: "custom".into(),
+            theme_file,
+        });
+    }
+    let theme = cli_theme
+        .or_else(|| std::env::var("ORQ_DASH_THEME").ok().filter(|s| !s.is_empty()))
+        .unwrap_or_else(|| "default".into());
+    if !is_curated_theme(&theme) {
+        bail!(
+            "unknown dash theme '{theme}' (supported: default, dracula, system; or --theme-file)"
+        );
+    }
+    Ok(DashThemeOpts {
+        theme,
+        theme_file: None,
+    })
+}
+
+fn is_curated_theme(name: &str) -> bool {
+    matches!(name, "default" | "dracula" | "system")
+}
+
+fn embedded_theme_css(file_name: &str) -> Option<&'static str> {
+    // Compile-time presence check for curated packs (fallback when disk missing).
+    match file_name {
+        "base.css" => Some(include_str!("../../../web/dashboard/themes/base.css")),
+        "default.css" => Some(include_str!("../../../web/dashboard/themes/default.css")),
+        "dracula.css" => Some(include_str!("../../../web/dashboard/themes/dracula.css")),
+        "system.css" => Some(include_str!("../../../web/dashboard/themes/system.css")),
+        _ => None,
+    }
+}
+
+fn theme_css_response(
+    root: &Path,
+    file_name: &str,
+    theme_file: Option<&Path>,
+) -> (&'static str, &'static str, Vec<u8>) {
+    const CTYPE: &str = "text/css; charset=utf-8";
+    if file_name == "custom.css" {
+        let Some(path) = theme_file else {
+            return (
+                "404 Not Found",
+                "text/plain; charset=utf-8",
+                b"no custom theme file configured".to_vec(),
+            );
+        };
+        return match fs::read(path) {
+            Ok(bytes) => ("200 OK", CTYPE, bytes),
+            Err(_) => (
+                "404 Not Found",
+                "text/plain; charset=utf-8",
+                format!("missing {}", path.display()).into_bytes(),
+            ),
+        };
+    }
+    if !file_name.ends_with(".css")
+        || file_name.contains("..")
+        || file_name.contains('/')
+        || file_name.contains('\\')
+        || file_name.contains('\0')
+    {
+        return (
+            "400 Bad Request",
+            "text/plain; charset=utf-8",
+            b"invalid theme path".to_vec(),
+        );
+    }
+    let disk = root.join("themes").join(file_name);
+    if let Ok(bytes) = fs::read(&disk) {
+        return ("200 OK", CTYPE, bytes);
+    }
+    if let Some(embedded) = embedded_theme_css(file_name) {
+        return ("200 OK", CTYPE, embedded.as_bytes().to_vec());
+    }
+    (
+        "404 Not Found",
+        "text/plain; charset=utf-8",
+        format!("missing theme {file_name}").into_bytes(),
+    )
+}
+
+fn index_html_response(root: &Path, theme_opts: &DashThemeOpts) -> (&'static str, &'static str, Vec<u8>) {
+    const CTYPE: &str = "text/html; charset=utf-8";
+    let path = root.join("index.html");
+    let Ok(raw) = fs::read_to_string(&path) else {
+        return (
+            "404 Not Found",
+            "text/plain; charset=utf-8",
+            format!("missing {}", path.display()).into_bytes(),
+        );
+    };
+    let boot = if theme_opts.theme_file.is_some() {
+        "custom"
+    } else {
+        theme_opts.theme.as_str()
+    };
+    let html = raw.replace(
+        "data-theme-boot=\"default\"",
+        &format!("data-theme-boot=\"{boot}\""),
+    );
+    let html = if boot == "custom" {
+        html.replace(
+            "href=\"/themes/default.css\"",
+            "href=\"/themes/custom.css\"",
+        )
+        .replace("data-theme=\"default\"", "data-theme=\"custom\"")
+    } else if boot != "default" {
+        html.replace(
+            "href=\"/themes/default.css\"",
+            &format!("href=\"/themes/{boot}.css\""),
+        )
+        .replace(
+            "data-theme=\"default\"",
+            &format!("data-theme=\"{boot}\""),
+        )
+    } else {
+        html
+    };
+    ("200 OK", CTYPE, html.into_bytes())
+}
+
 pub fn run_serve(
     store: Arc<Store>,
     workspace: String,
@@ -37,6 +180,7 @@ pub fn run_serve(
     port: u16,
     root: PathBuf,
     snapshot_out: Option<PathBuf>,
+    theme_opts: DashThemeOpts,
 ) -> Result<()> {
     if !root.join("index.html").is_file() {
         bail!(
@@ -74,9 +218,14 @@ pub fn run_serve(
     let addr = format!("127.0.0.1:{port}");
     let listener = TcpListener::bind(&addr).with_context(|| format!("bind {addr}"))?;
     eprintln!(
-        "porq dash serve http://{addr}/ (root={}, data={})",
+        "porq dash serve http://{addr}/ (root={}, data={}, theme={})",
         root.display(),
-        snap_path.display()
+        snap_path.display(),
+        if theme_opts.theme_file.is_some() {
+            "custom"
+        } else {
+            theme_opts.theme.as_str()
+        }
     );
 
     for stream in listener.incoming() {
@@ -98,7 +247,7 @@ pub fn run_serve(
         let path = raw_path.split('?').next().unwrap_or("/");
 
         let (status, ctype, body) = if path == "/" || path == "/index.html" {
-            file_response(&root.join("index.html"), "text/html; charset=utf-8")
+            index_html_response(&root, &theme_opts)
         } else if path == "/app.js" {
             file_response(
                 &root.join("app.js"),
@@ -106,6 +255,8 @@ pub fn run_serve(
             )
         } else if path == "/data.json" {
             file_response(&snap_path, "application/json; charset=utf-8")
+        } else if let Some(name) = path.strip_prefix("/themes/") {
+            theme_css_response(&root, name, theme_opts.theme_file.as_deref())
         } else if let Some(name) = path.strip_prefix("/canvas/") {
             canvas_response(&canvas_dir, name)
         } else if let Some(task_id) = parse_task_logs_path(path) {

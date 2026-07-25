@@ -19,6 +19,7 @@ const outDir = join(root, "docs", "img");
 const outCanvases = join(outDir, "dashboard.png");
 const outDetails = join(outDir, "dashboard-details.png");
 const outGif = join(outDir, "dashboard.gif");
+const outDracula = join(outDir, "usecases", "porq-demo-dracula.png");
 
 function freePort() {
   return new Promise((resolve, reject) => {
@@ -222,6 +223,17 @@ await page.waitForSelector("#board", { timeout: 5_000 });
 await page.waitForTimeout(500);
 await page.screenshot({ path: outDetails, fullPage: false });
 
+// Dracula still for themes docs (hero stays on default)
+await page.locator("#tab-canvases").click();
+await page.waitForSelector("#view-canvases.active", { timeout: 5_000 });
+await page.locator("#theme-select").selectOption("dracula");
+await page.waitForFunction(
+  () => document.documentElement.getAttribute("data-theme") === "dracula"
+);
+await page.waitForTimeout(400);
+mkdirSync(dirname(outDracula), { recursive: true });
+await page.screenshot({ path: outDracula, fullPage: false });
+
 await browser.close();
 proc.kill();
 
@@ -249,3 +261,4 @@ if (gif.status !== 0) {
 console.log("wrote", outCanvases);
 console.log("wrote", outDetails);
 console.log("wrote", outGif);
+console.log("wrote", outDracula);
