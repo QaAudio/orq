@@ -9,8 +9,11 @@ dashboard) bend to a real consumer. Loop Meta policy, roadmap law, and TDIV
 registry live in **td-rs**; porq stores opaque POIs, runs tasks, and paints
 canvases.
 
-Screenshots / GIF: [`../img/usecases/`](../img/usecases/) — capture after
-visual acceptance (see that folder’s README). Do not invent placeholder PNGs.
+Screenshots / GIF: [`../img/usecases/`](../img/usecases/)
+
+![porq Canvases during PorqDemo wave](../img/usecases/porq-demo-canvases.png)
+
+_Canvases view on `:9847` (`tdrs-loop`) after PorqDemo0–2 — health, roadmap, checks, review._
 
 ## Architecture sketch
 
