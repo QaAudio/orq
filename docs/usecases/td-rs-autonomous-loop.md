@@ -1,83 +1,77 @@
 # Use case — td-rs autonomous loop on porq
 
-> One sentence: **porq coordinates a Rust TouchDesigner-clone autonomous loop**
-> with leases, claimed exec, a check matrix, review land-veto, drift handoff,
-> and human-gated roadmap proposals — without becoming a TD-domain engine.
+> **porq coordinates a Rust TouchDesigner-clone autonomous loop** with leases,
+> claimed exec, a check matrix, review land-veto, and human-gated roadmap
+> proposals — without becoming a TD-domain engine.
 
-This page is evidence that porq’s generic layers (run → POI → lease → trigger →
-dashboard) bend to a real consumer. Loop Meta policy, roadmap law, and TDIV
-registry live in **td-rs**; porq stores opaque POIs, runs tasks, and paints
-canvases.
+This page is evidence that porq’s generic layers (`run` → POI → lease → trigger →
+dashboard) bend to a real consumer. Loop Meta policy and roadmap law live in
+**td-rs**; porq stores opaque POIs, runs tasks, and paints canvases.
 
-Screenshots / GIF: [`../img/usecases/`](../img/usecases/)
+## Watch this board
 
-![porq Canvases during PorqDemo wave](../img/usecases/porq-demo-canvases.png)
+After the PorqDemo0–2 visualization wave (now Closed; program stop is valid),
+the `tdrs-loop` workspace still tells the story on
+[`porq dash serve --port 9847`](http://127.0.0.1:9847/).
 
-_Canvases view on `:9847` (`tdrs-loop`) after PorqDemo0–2 — health, roadmap, checks, review._
+![Canvases — loop health, roadmap, checks, review](../img/usecases/porq-demo-canvases.png)
 
-## Architecture sketch
+_Canvases view._ Health is green, roadmap is on **HANDOFF** (`Active: none`),
+checks passed, and a **red** review shows the land-veto path working — observe
+first, CLI controls.
+
+![Details — pulse, tasks, events](../img/usecases/porq-demo-details.png)
+
+_Details view._ Same live pulse strip; board/tasks/events for correlation when a
+canvas says “blocked” and you need the task id.
+
+## How the story maps to primitives
 
 ```text
-Human SoT: STATE.json · queues · INTENTIONAL_DIVERGENCE registry
+Human SoT: STATE.json · queues · intentional-divergence registry
                 │ read-only mirror
                 ▼
         porq workspace tdrs-loop
-   roadmap · gate-locks · reports · reviews
-   drift-reports · roadmap-proposals · canvas
+   roadmap · gate-locks · reports · reviews · canvas
                 │
    Loop Meta agent ── lock / claim / run / record ──► porq
-   review trigger ── task.pre-exec veto on land-* ──► blocked|ok
+   review / checks ── task.pre-exec veto on land-* ──► blocked|ok
                 │
                 ▼
-        porq dash serve :9847   (observe)
-        CLI / harness           (control)
+        porq dash :9847   (observe)
+        CLI / harness     (control)
 ```
 
-| Loop Meta phase | Porq primitive (generic name) |
-|-----------------|-------------------------------|
-| MAsk / preflight | POI + canvas (`loop-preflight`) |
-| MClassify | `drift-reports` POI + `loop-drift` |
-| MSched | lease on `gate-locks/<gate>` |
-| MExec | `run --sync` + path claims |
-| MVerify | named check tasks → `loop-checks` |
-| MLand gate | blocking `task.pre-exec` on `land-*` |
-| Roadmap change | proposal POI; **human receipt** before harness apply |
+| What you see on the board | Porq primitive |
+|---------------------------|----------------|
+| `loop-preflight` / health | POI + canvas |
+| Gate lease / session | `gate-locks/<gate>` |
+| Exec unit | `run --sync` + `--claim` |
+| Check matrix | named tasks → `loop-checks` |
+| Red review blocking land | blocking `task.pre-exec` on `land-*` |
+| Roadmap proposal status | display POI — **human receipt** applies |
 
-## Walkthrough (accurate — no fake Active gate)
+## Short walkthrough (no fake Active gate)
 
-Today’s td-rs program stop is **`Active: none`**. That is a valid handoff, not
-a bug. The demo below stays on scratch mirrors and display canvases; it does
-**not** auto-promote a Later gate.
-
-1. **Program-stop mirror** — `sync_roadmap_to_porq` paints `loop-roadmap` with
-   `HANDOFF` / gate `none`. Preflight may report `not-ready`; do not invent work.
-2. **Preflight canvas** — budget math + readiness on `loop-preflight`.
-3. **Claimed exec** — a scratch unit runs as
-   `porq run --sync --name exec-<gate>-<unit> --claim "…" -- <cmd>` while
-   holding `gate-locks/<gate>`.
-4. **Check matrix** — named check tasks publish `loop-checks` (green path and
-   forced-red path in dry-runs).
-5. **Review land veto** — `land-*` never starts when review/check POIs are
-   missing or red (`task.pre-exec` hook).
-6. **Drift / TDIV handoff** — classify before parity mutation; proposed
-   intentional divergence waits for a human — agents do not approve TDIV.
-7. **Proposal + out-of-band approval** — `roadmap_ctl.py propose` → human
-   receipt → `apply`. Porq canvases show status; they are not credentials.
+1. **Program-stop mirror** — `sync_roadmap_to_porq` paints `loop-roadmap` with gate
+   `none`. Preflight may be `not-ready`; that is expected.
+2. **Claimed exec** — scratch unit as `porq run --sync --name exec-… --claim …`.
+3. **Checks + review** — green checks and a forced-red review prove land never
+   starts when the veto fires (`loop_scratch_e2e.ps1`).
+4. **Human roadmap** — `roadmap_ctl.py propose` → out-of-band receipt → `apply`.
+   Canvases show status; they are not credentials.
 
 ## Steal these patterns
-
-Without cloning td-rs, reuse the orchestration surface:
 
 | Pattern | Where in porq |
 |---------|----------------|
 | Pre-land veto | `recipes/preland-gate` + blocking `task.pre-exec` |
-| Exec review spawn | `recipes/review-agent` (supervised `run` fallback) |
-| Structured agent launch | Launch profiles / result envelopes (`docs/adapters.md`) |
+| Exec review | `recipes/review-agent` (supervised `run` fallback) |
+| Structured agent launch | Launch profiles (`docs/adapters.md`) |
 | Observe ≠ control | Dashboard read-only; CLI mutates |
-| Path single-flight | `--claim` + separate lock namespace from display POIs |
+| Path single-flight | `--claim` + lock namespace separate from display POIs |
 
 ## Vision guard
 
-If a change only helps Loop Meta / Cursor / TD vocabulary, keep it in the
-td-rs integration layer. porq core stays provider-agnostic: tasks, events,
-POIs, leases, triggers, launch profiles — not roadmap verbs or TDIV schema.
+Domain scripts stay in `td-rs/`. This usecase proves porq’s flexibility — it is
+not a reason to hardcode Loop Meta into porq core.

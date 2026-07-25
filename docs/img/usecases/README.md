@@ -1,5 +1,11 @@
 ﻿# Use-case screenshots
 
-Captured during the PorqDemo0–2 visualization wave:
+Captured from the live `tdrs-loop` dashboard after the compact/professional polish:
 
-- `porq-demo-canvases.png` — Canvases view on `http://127.0.0.1:9847/` (`tdrs-loop`) showing loop-health, roadmap, checks, and review canvases.
+| File | Shows |
+|------|--------|
+| `porq-demo-canvases.png` | **Canvases** — loop-health, roadmap HANDOFF, checks, review veto |
+| `porq-demo-details.png` | **Details** — pulse strip, loop ops, board/tasks |
+
+Regen: serve `porq -w tdrs-loop dash serve --port 9847`, refresh mirrors via
+`porq_loop_doctor.ps1` / `sync_roadmap_to_porq.py`, then capture at ~1440×900.

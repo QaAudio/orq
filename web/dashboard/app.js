@@ -268,6 +268,43 @@
       listType = null;
     }
 
+    function flushTable(rows) {
+      if (!rows.length) return;
+      const head = rows[0];
+      const body = rows.slice(1);
+      out.push('<div class="table-wrap"><table class="md-table"><thead><tr>');
+      for (const cell of head) {
+        out.push("<th>" + inlineFormat(esc(cell)) + "</th>");
+      }
+      out.push("</tr></thead><tbody>");
+      for (const row of body) {
+        out.push("<tr>");
+        for (const cell of row) {
+          out.push("<td>" + inlineFormat(esc(cell)) + "</td>");
+        }
+        out.push("</tr>");
+      }
+      out.push("</tbody></table></div>");
+    }
+
+    function parseTableRow(line) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("|") || !trimmed.includes("|", 1)) return null;
+      const parts = trimmed.split("|");
+      // drop leading/trailing empties from edge pipes
+      if (parts[0].trim() === "") parts.shift();
+      if (parts.length && parts[parts.length - 1].trim() === "") parts.pop();
+      if (!parts.length) return null;
+      return parts.map((c) => c.trim());
+    }
+
+    function isSeparatorRow(cells) {
+      return (
+        cells.length > 0 &&
+        cells.every((c) => /^:?-{3,}:?$/.test(c.replace(/\s+/g, "")))
+      );
+    }
+
     function inlineFormat(escaped) {
       return escaped
         .replace(/`([^`]+)`/g, "<code>$1</code>")
@@ -279,7 +316,9 @@
         );
     }
 
-    for (const line of lines) {
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
       if (line.startsWith("```")) {
         if (inCode) {
           out.push("<pre><code>" + codeBuf.join("\n") + "</code></pre>");
@@ -289,11 +328,32 @@
           flushList();
           inCode = true;
         }
+        i += 1;
         continue;
       }
       if (inCode) {
         codeBuf.push(esc(line));
+        i += 1;
         continue;
+      }
+
+      // GFM-ish tables: header | --- | rows
+      const tableRow = parseTableRow(line);
+      if (tableRow) {
+        const next = i + 1 < lines.length ? parseTableRow(lines[i + 1]) : null;
+        if (next && isSeparatorRow(next)) {
+          flushList();
+          const rows = [tableRow];
+          i += 2;
+          while (i < lines.length) {
+            const r = parseTableRow(lines[i]);
+            if (!r || isSeparatorRow(r)) break;
+            rows.push(r);
+            i += 1;
+          }
+          flushTable(rows);
+          continue;
+        }
       }
 
       const heading = /^(#{1,3})\s+(.*)$/.exec(line);
@@ -301,6 +361,7 @@
         flushList();
         const level = heading[1].length;
         out.push(`<h${level}>${inlineFormat(esc(heading[2]))}</h${level}>`);
+        i += 1;
         continue;
       }
 
@@ -312,6 +373,7 @@
           listType = "ul";
         }
         out.push("<li>" + inlineFormat(esc(ul[1])) + "</li>");
+        i += 1;
         continue;
       }
 
@@ -323,6 +385,7 @@
           listType = "ol";
         }
         out.push("<li>" + inlineFormat(esc(ol[2])) + "</li>");
+        i += 1;
         continue;
       }
 
@@ -332,6 +395,7 @@
       } else {
         out.push("<p>" + inlineFormat(esc(line)) + "</p>");
       }
+      i += 1;
     }
     if (inCode) {
       out.push("<pre><code>" + codeBuf.join("\n") + "</code></pre>");
@@ -448,15 +512,17 @@
         return (
           `<article class="canvas-card${span}" data-key="${esc(poi.key)}" data-kind="${esc(kind)}">` +
           `<div class="canvas-head">` +
+          `<div class="canvas-head-row">` +
           `<span class="canvas-title">${esc(title)}</span>` +
-          `<div class="canvas-meta">` +
-          `<span class="mono">${esc(kind)}</span>` +
           `${pill(poi.state || "live")}` +
-          `<span title="v${esc(poi.version)} · ${esc(poi.updated_at || "")}">v${esc(
-            poi.version
-          )} · ${esc(relTime(poi.updated_at))}</span>` +
+          `</div>` +
+          `<div class="canvas-meta">` +
+          `<span class="canvas-kind">${esc(kind)}</span>` +
+          `<span class="canvas-ver" title="v${esc(poi.version)} · ${esc(
+            poi.updated_at || ""
+          )}">v${esc(poi.version)} · ${esc(relTime(poi.updated_at))}</span>` +
           `</div></div>` +
-          `<div class="canvas-body">${renderCanvasBody(desc)}</div>` +
+          `<div class="canvas-body scroll-themed">${renderCanvasBody(desc)}</div>` +
           `</article>`
         );
       })

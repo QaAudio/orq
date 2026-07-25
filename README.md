@@ -5,7 +5,7 @@
 # porq
 
 > Progressive orchestration for multi-agent work.
-> Pronounced like French *porc* — hence the pig.
+> Pronounced like French *porc* — hence the pig. Agents that don’t collide.
 
 A single local binary that grows with you. Start with supervised tasks; add
 shared state, leases, triggers, model routing, and optional remote storage when
@@ -22,10 +22,16 @@ share across machines   →  + --remote (Turso/libSQL)
 ```
 
 <p align="center">
+  <img src="docs/img/usecases/porq-demo-canvases.png" alt="porq Canvases — td-rs loop health, roadmap, checks, review" width="920" />
+</p>
+
+<p align="center"><sub><strong>Real consumer board</strong> — Canvases from the td-rs autonomous-loop workspace (<code>tdrs-loop</code>). Health green, roadmap on handoff, review veto visible. <a href="docs/usecases/td-rs-autonomous-loop.md">Full walkthrough</a> · <a href="docs/img/usecases/porq-demo-details.png">Details view</a></sub></p>
+
+<p align="center">
   <img src="docs/img/dashboard.gif" alt="porq dashboard — Canvases and Details views" width="920" />
 </p>
 
-<p align="center"><sub><strong>Canvases</strong> (agent-published surfaces) ↔ <strong>Details</strong> (board, tasks, jobs, events). Pulse strip stays visible either way. <code>porq dash serve</code></sub></p>
+<p align="center"><sub>Seeded demo GIF: <strong>Canvases</strong> ↔ <strong>Details</strong>. <code>porq dash serve</code></sub></p>
 
 ---
 
@@ -62,7 +68,7 @@ Concrete consumer walkthrough (leases, checks, review veto, human-gated
 roadmap proposals — domain scripts stay outside porq core):
 
 - [td-rs autonomous loop](docs/usecases/td-rs-autonomous-loop.md)
-- Screenshots: [`docs/img/usecases/`](docs/img/usecases/) (captured after visual acceptance)
+- Screenshots: [`docs/img/usecases/`](docs/img/usecases/)
 
 ---
 
