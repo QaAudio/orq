@@ -1066,6 +1066,26 @@ impl Store {
         Ok(count as u32)
     }
 
+    pub fn delete_poi(&self, workspace: &str, table: &str, key: &str) -> Result<bool> {
+        self.with_tx(|conn| {
+            let n = conn.execute(
+                "DELETE FROM pois WHERE workspace=?1 AND table_name=?2 AND key=?3",
+                params![workspace, table, key],
+            )?;
+            if n == 0 {
+                return Ok(false);
+            }
+            append_event_conn(
+                conn,
+                workspace,
+                None,
+                "poi.deleted",
+                json!({ "table": table, "key": key }),
+            )?;
+            Ok(true)
+        })
+    }
+
     pub fn gc(&self, workspace: &str, session: Option<&str>) -> Result<serde_json::Value> {
         let deleted_pois;
         let deleted_tasks;

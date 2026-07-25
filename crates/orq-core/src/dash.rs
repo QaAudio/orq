@@ -33,6 +33,7 @@ pub fn build_snapshot(
     let affinities = store.list_affinities(workspace, None)?;
     let events = store.list_events(workspace, None, row_limit.min(100), session)?;
     let files = list_workspace_files(store, workspace, 80)?;
+    let canvases = list_canvases(store, workspace, session, row_limit)?;
 
     Ok(json!({
         "updated": Utc::now().to_rfc3339(),
@@ -43,7 +44,34 @@ pub fn build_snapshot(
         "affinities": affinities,
         "events": events,
         "files": files,
+        "canvases": canvases,
     }))
+}
+
+fn list_canvases(
+    store: &Store,
+    workspace: &str,
+    session: Option<&str>,
+    row_limit: usize,
+) -> Result<Vec<crate::types::Poi>> {
+    if store.get_poi_table(workspace, "canvas")?.is_none() {
+        return Ok(vec![]);
+    }
+    let mut rows = store.list_pois(workspace, "canvas", session, row_limit)?;
+    rows.sort_by(|a, b| {
+        let oa = a
+            .columns
+            .get("order")
+            .and_then(|v| v.as_i64().or_else(|| v.as_f64().map(|f| f as i64)))
+            .unwrap_or(0);
+        let ob = b
+            .columns
+            .get("order")
+            .and_then(|v| v.as_i64().or_else(|| v.as_f64().map(|f| f as i64)))
+            .unwrap_or(0);
+        oa.cmp(&ob).then_with(|| a.key.cmp(&b.key))
+    });
+    Ok(rows)
 }
 
 fn list_workspace_files(store: &Store, workspace: &str, limit: usize) -> Result<Vec<String>> {
@@ -169,9 +197,11 @@ mod tests {
             "affinities",
             "events",
             "files",
+            "canvases",
         ] {
             assert!(snap.get(key).is_some(), "missing key {key}");
         }
+        assert!(snap["canvases"].as_array().unwrap().is_empty());
         let board = snap["board"].as_array().unwrap();
         assert!(board.iter().any(|p| p["key"] == "alpha"));
 

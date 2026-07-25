@@ -152,6 +152,64 @@ run([
   "MOA",
 ]);
 
+// Canvases: markdown + image (+ unknown-kind fallback via raw poi set)
+run([
+  "canvas",
+  "set",
+  "plan",
+  "--title",
+  "E2E Plan",
+  "--body",
+  "## E2E Plan\n\n- seed board\n- publish canvas\n- assert render",
+  "--order",
+  "1",
+  "--json",
+]);
+
+const pngPath = join(dataDir, "e2e-dot.png");
+// 1x1 PNG
+writeFileSync(
+  pngPath,
+  Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "base64"
+  )
+);
+run([
+  "canvas",
+  "set",
+  "render",
+  "--title",
+  "E2E Render",
+  "--image",
+  pngPath,
+  "--alt",
+  "e2e pixel",
+  "--order",
+  "2",
+  "--json",
+]);
+
+run([
+  "poi",
+  "table",
+  "create",
+  "canvas",
+  "--json",
+], { allowFail: true });
+run([
+  "poi",
+  "set",
+  "canvas",
+  "mystery",
+  JSON.stringify({ v: 1, kind: "vega-lite", title: "Future chart", spec: { mark: "bar" } }),
+  "--state",
+  "live",
+  "--col",
+  "order=3",
+  "--json",
+]);
+
 run(["dash", "snapshot", "--json"]);
 
 const statePath = join(__dirname, ".seed-state.json");

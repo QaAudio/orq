@@ -104,6 +104,188 @@
     return `<div class="table-wrap"><table>${rowsHtml}</table></div>`;
   }
 
+  function resolveSrc(src) {
+    const s = String(src || "");
+    if (s.startsWith("canvas:")) {
+      return "/canvas/" + encodeURIComponent(s.slice("canvas:".length));
+    }
+    return s;
+  }
+
+  function clampHeight(h, fallback) {
+    const n = Number(h);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.max(120, Math.min(800, Math.round(n)));
+  }
+
+  /** Escape-first markdown subset (headings, bold/italic, code, lists, links). */
+  function renderMarkdown(src) {
+    const raw = String(src ?? "");
+    const lines = raw.replace(/\r\n/g, "\n").split("\n");
+    const out = [];
+    let inCode = false;
+    let codeBuf = [];
+    let listType = null;
+
+    function flushList() {
+      if (!listType) return;
+      out.push(listType === "ol" ? "</ol>" : "</ul>");
+      listType = null;
+    }
+
+    function inlineFormat(escaped) {
+      return escaped
+        .replace(/`([^`]+)`/g, "<code>$1</code>")
+        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+        .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+        .replace(
+          /\[([^\]]+)\]\((https?:[^)\s]+)\)/g,
+          '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
+        );
+    }
+
+    for (const line of lines) {
+      if (line.startsWith("```")) {
+        if (inCode) {
+          out.push("<pre><code>" + codeBuf.join("\n") + "</code></pre>");
+          codeBuf = [];
+          inCode = false;
+        } else {
+          flushList();
+          inCode = true;
+        }
+        continue;
+      }
+      if (inCode) {
+        codeBuf.push(esc(line));
+        continue;
+      }
+
+      const heading = /^(#{1,3})\s+(.*)$/.exec(line);
+      if (heading) {
+        flushList();
+        const level = heading[1].length;
+        out.push(`<h${level}>${inlineFormat(esc(heading[2]))}</h${level}>`);
+        continue;
+      }
+
+      const ul = /^[-*]\s+(.*)$/.exec(line);
+      if (ul) {
+        if (listType !== "ul") {
+          flushList();
+          out.push("<ul>");
+          listType = "ul";
+        }
+        out.push("<li>" + inlineFormat(esc(ul[1])) + "</li>");
+        continue;
+      }
+
+      const ol = /^(\d+)\.\s+(.*)$/.exec(line);
+      if (ol) {
+        if (listType !== "ol") {
+          flushList();
+          out.push("<ol>");
+          listType = "ol";
+        }
+        out.push("<li>" + inlineFormat(esc(ol[2])) + "</li>");
+        continue;
+      }
+
+      flushList();
+      if (!line.trim()) {
+        out.push("");
+      } else {
+        out.push("<p>" + inlineFormat(esc(line)) + "</p>");
+      }
+    }
+    if (inCode) {
+      out.push("<pre><code>" + codeBuf.join("\n") + "</code></pre>");
+    }
+    flushList();
+    return out.join("\n");
+  }
+
+  function canvasDescriptor(poi) {
+    let v = poi && poi.value;
+    if (typeof v === "string") {
+      try {
+        v = JSON.parse(v);
+      } catch {
+        return { kind: "unknown", raw: v };
+      }
+    }
+    if (!v || typeof v !== "object") {
+      return { kind: "unknown", raw: v };
+    }
+    return v;
+  }
+
+  function renderCanvasBody(desc) {
+    const kind = (desc.kind || "unknown").toString().toLowerCase();
+    if (kind === "markdown") {
+      return `<div class="canvas-md">${renderMarkdown(desc.body || "")}</div>`;
+    }
+    if (kind === "image") {
+      const src = resolveSrc(desc.src);
+      const alt = esc(desc.alt || desc.title || "canvas image");
+      return `<img src="${esc(src)}" alt="${alt}" loading="lazy" />`;
+    }
+    if (kind === "url") {
+      const src = resolveSrc(desc.src);
+      const h = clampHeight(desc.height, 360);
+      return `<iframe src="${esc(src)}" height="${h}" sandbox="allow-scripts" referrerpolicy="no-referrer" title="${esc(
+        desc.title || "url canvas"
+      )}"></iframe>`;
+    }
+    if (kind === "html") {
+      const h = clampHeight(desc.height, 280);
+      const body = String(desc.body || "");
+      return `<iframe srcdoc="${esc(body)}" height="${h}" sandbox="" referrerpolicy="no-referrer" title="${esc(
+        desc.title || "html canvas"
+      )}"></iframe>`;
+    }
+    let pretty;
+    try {
+      pretty = JSON.stringify(desc, null, 2);
+    } catch {
+      pretty = String(desc);
+    }
+    return `<pre class="canvas-fallback">${esc(pretty)}</pre>`;
+  }
+
+  function renderCanvases(canvases) {
+    if (!canvases.length) {
+      return `<p class="placeholder">none — publish with <code>orq canvas set</code></p>`;
+    }
+    const cards = canvases
+      .map((poi) => {
+        const desc = canvasDescriptor(poi);
+        const title = desc.title || poi.key || "canvas";
+        const span =
+          (poi.columns && (poi.columns.span === 2 || poi.columns.span === "2")) ||
+          desc.span === 2
+            ? " span-2"
+            : "";
+        const kind = (desc.kind || "unknown").toString();
+        return (
+          `<article class="canvas-card${span}" data-key="${esc(poi.key)}" data-kind="${esc(kind)}">` +
+          `<div class="canvas-head">` +
+          `<span class="canvas-title">${esc(title)}</span>` +
+          `<div class="canvas-meta">` +
+          `<span class="mono">${esc(kind)}</span>` +
+          `${pill(poi.state || "live")}` +
+          `<span title="v${esc(poi.version)} · ${esc(poi.updated_at || "")}">v${esc(
+            poi.version
+          )} · ${esc(relTime(poi.updated_at))}</span>` +
+          `</div></div>` +
+          `<div class="canvas-body">${renderCanvasBody(desc)}</div>` +
+          `</article>`
+        );
+      })
+      .join("");
+    return `<div class="canvas-grid">${cards}</div>`;
+  }
+
   function renderEvents(events) {
     const rows = events
       .slice()
@@ -156,6 +338,7 @@
     const aff = asArray(d.affinities);
     const events = asArray(d.events);
     const files = asArray(d.files);
+    const canvases = asArray(d.canvases);
 
     setCount("count-board", board.length);
     setCount("count-tasks", tasks.length);
@@ -163,6 +346,7 @@
     setCount("count-aff", aff.length);
     setCount("count-events", events.length);
     setCount("count-files", files.length);
+    setCount("count-canvases", canvases.length);
 
     const boardRows = board
       .map(
@@ -228,11 +412,18 @@
       "none"
     );
 
+    document.getElementById("canvases").innerHTML = renderCanvases(canvases);
     document.getElementById("events").innerHTML = renderEvents(events);
     document.getElementById("files").innerHTML = renderFiles(files);
 
     const hasAny =
-      board.length + tasks.length + jobs.length + aff.length + events.length > 0;
+      board.length +
+        tasks.length +
+        jobs.length +
+        aff.length +
+        events.length +
+        canvases.length >
+      0;
     emptyHint.classList.toggle("visible", !hasAny);
   }
 

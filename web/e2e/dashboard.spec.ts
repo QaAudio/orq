@@ -98,5 +98,20 @@ test.describe("orq dashboard", () => {
     await expect(page.locator("#error")).not.toHaveClass(/visible/);
     await expect(page.locator(".pill").first()).toBeVisible();
     await expect(page.locator("#events .event-row").first()).toBeVisible();
+
+    // Canvas protocol
+    await expect(page.locator(".canvas-card")).toHaveCount(3);
+    await expect(page.locator('.canvas-card[data-key="plan"]')).toContainText("E2E Plan");
+    await expect(page.locator('.canvas-card[data-key="plan"] .canvas-md h2')).toContainText(
+      "E2E Plan"
+    );
+    const img = page.locator('.canvas-card[data-key="render"] img');
+    await expect(img).toBeVisible();
+    await expect
+      .poll(async () => img.evaluate((el) => (el as HTMLImageElement).naturalWidth))
+      .toBeGreaterThan(0);
+    await expect(page.locator('.canvas-card[data-kind="vega-lite"] .canvas-fallback')).toContainText(
+      "vega-lite"
+    );
   });
 });

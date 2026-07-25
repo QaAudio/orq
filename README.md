@@ -48,14 +48,15 @@ The rest is sitting there when you need it.
 | Layer | You add | You get |
 |-------|---------|---------|
 | **0 — Run** | `orq run` | Supervised tasks: await, retry, cancel, kill, logs. No daemon needed with `--sync`. |
-| **1 — Remember** | POI tables | Versioned JSON cells (board cards, approvals, anything). CAS writes, tiers, sessions. |
+| **1 — Remember** | POI tables (+ `canvas`) | Versioned JSON cells (board cards, approvals, dashboard canvases). CAS, tiers, sessions. |
 | **2 — Not collide** | Leases & claims | Time-boxed locks with holders; `--claim "src/**"` fences files for a task's lifetime. |
 | **3 — React** | Triggers | "When X happens, do Y" with blocking vetoes, budgets, cascade guards. Daemon auto-spawns. |
 | **4 — Route** | Models & jobs | Affinity scores that learn (EMA), `single` / `race` / `moa` scheduling. |
 | **5 — Share** | `--remote` | Same CLI against Turso/libSQL. Two laptops, one desk, real transactions. |
 
 Every mutation at every layer lands in one append-only **event log**, and the
-**dashboard** renders it all live. Observability isn't a layer — it's the floor.
+**dashboard** renders it all live — including agent-published **canvases**
+(markdown / image / url / html). Observability isn't a layer — it's the floor.
 
 Inspired by (and cheerfully independent from) Pueue, Temporal, Restate,
 Taskwarrior, Hatchet, and the Loop Meta vibe from td-rs.
@@ -168,6 +169,19 @@ Opt-in only: without `--remote`, you stay local. A stray `.env` never hijacks yo
 </details>
 
 <details>
+<summary><strong>Bonus — Publish a canvas</strong> — markdown / image / url on the dashboard</summary>
+
+```bash
+orq canvas set plan --body "## Next\n- probe\n- ship"
+orq canvas set shot --image ./out.png --title "Render"
+orq dash serve --port 9847
+```
+
+Canvases are POIs in the reserved `canvas` table — versioned, lockable, live within 1s.
+
+</details>
+
+<details>
 <summary><strong>Bonus — Watch the pulse</strong> — that's the screenshot above</summary>
 
 ```bash
@@ -275,6 +289,31 @@ orq dash serve --port 9847        # static UI + /data.json (1s refresh)
 ```
 
 Override static root with `--root` or `ORQ_DASH_ROOT`.
+
+### Canvases (display protocol v1)
+
+Agents publish arbitrary display surfaces as POIs in the reserved **`canvas`**
+table. The dashboard polls them with everything else — no new transport.
+
+| `kind` | Fields | Renders as |
+|--------|--------|------------|
+| `markdown` | `title`, `body` | Safe escape-first markdown subset |
+| `image` | `title`, `src`, `alt?` | `<img>` |
+| `url` | `title`, `src`, `height?` | Sandboxed iframe |
+| `html` | `title`, `body`, `height?` | `srcdoc` iframe (`sandbox=""` — no scripts) |
+| *(other)* | any | Pretty-printed JSON fallback |
+
+`src` forms: `data:…` (inline), `canvas:<file>` → `$ORQ_DATA_DIR/canvas/` via
+`GET /canvas/<file>`, or `http(s)://…`. Layout hints: `columns.order`,
+`columns.span` (`1`|`2`). State pill: `live` / `done` / `archived`.
+
+```bash
+orq canvas set plan --md ./notes.md --order 1
+orq canvas set shot --image ./frame.png --span 2
+orq canvas set report --url https://example.com/status --height 480
+orq canvas ls --json
+orq canvas rm plan
+```
 
 ### Dashboard E2E (no LLM)
 

@@ -390,6 +390,109 @@
   }
 
   .file-chip:hover { border-color: var(--teal); color: var(--teal); }
+
+  /* Canvas cards */
+  .canvas-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+
+  @media (max-width: 900px) {
+    .canvas-grid { grid-template-columns: 1fr; }
+  }
+
+  .canvas-card {
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius);
+    background: var(--bg);
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  .canvas-card.span-2 { grid-column: 1 / -1; }
+
+  .canvas-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid var(--border-soft);
+    background: var(--panel-elev);
+  }
+
+  .canvas-title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text);
+  }
+
+  .canvas-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--muted);
+    font-size: 0.7rem;
+  }
+
+  .canvas-body {
+    padding: 0.75rem;
+    max-height: 420px;
+    overflow: auto;
+  }
+
+  .canvas-body img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 6px;
+  }
+
+  .canvas-body iframe {
+    width: 100%;
+    border: 0;
+    border-radius: 6px;
+    background: #0c0b0a;
+  }
+
+  .canvas-md h1, .canvas-md h2, .canvas-md h3 {
+    font-family: var(--font-display);
+    margin: 0.4rem 0 0.35rem;
+    color: var(--amber);
+  }
+  .canvas-md h1 { font-size: 1.15rem; }
+  .canvas-md h2 { font-size: 1.02rem; }
+  .canvas-md h3 { font-size: 0.92rem; }
+  .canvas-md p, .canvas-md li { margin: 0.25rem 0; line-height: 1.45; color: var(--text); }
+  .canvas-md ul, .canvas-md ol { padding-left: 1.2rem; margin: 0.3rem 0; }
+  .canvas-md code {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    background: var(--panel-elev);
+    padding: 0.05rem 0.3rem;
+    border-radius: 4px;
+    color: var(--teal);
+  }
+  .canvas-md pre {
+    background: var(--panel-elev);
+    border: 1px solid var(--border-soft);
+    border-radius: 6px;
+    padding: 0.55rem 0.7rem;
+    overflow: auto;
+    font-size: 0.76rem;
+  }
+  .canvas-md pre code { background: transparent; padding: 0; color: var(--text); }
+  .canvas-md a { color: var(--blue); }
+  .canvas-fallback {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 0.76rem;
+    color: var(--muted);
+  }
 </style>
 </head>
 <body>
@@ -433,6 +536,13 @@
       <span class="count" id="count-aff">0</span>
     </div>
     <div class="panel-body" id="aff"><p class="placeholder">loading…</p></div>
+  </section>
+  <section class="wide">
+    <div class="section-head">
+      <h2>Canvases</h2>
+      <span class="count" id="count-canvases">0</span>
+    </div>
+    <div class="panel-body" id="canvases"><p class="placeholder">loading…</p></div>
   </section>
   <section class="wide">
     <div class="section-head">

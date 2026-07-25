@@ -63,9 +63,16 @@ pub fn run_serve(
         });
     }
 
+    let canvas_dir = data_dir.join("canvas");
+    let _ = fs::create_dir_all(&canvas_dir);
+
     let addr = format!("127.0.0.1:{port}");
     let listener = TcpListener::bind(&addr).with_context(|| format!("bind {addr}"))?;
-    eprintln!("orq dash serve http://{addr}/ (root={}, data={})", root.display(), snap_path.display());
+    eprintln!(
+        "orq dash serve http://{addr}/ (root={}, data={})",
+        root.display(),
+        snap_path.display()
+    );
 
     for stream in listener.incoming() {
         let Ok(mut stream) = stream else {
@@ -84,15 +91,23 @@ pub fn run_serve(
             .unwrap_or("/");
         let path = path.split('?').next().unwrap_or("/");
 
-        let (status, ctype, body) = match path {
-            "/" | "/index.html" => file_response(&root.join("index.html"), "text/html; charset=utf-8"),
-            "/app.js" => file_response(&root.join("app.js"), "application/javascript; charset=utf-8"),
-            "/data.json" => file_response(&snap_path, "application/json; charset=utf-8"),
-            _ => (
+        let (status, ctype, body) = if path == "/" || path == "/index.html" {
+            file_response(&root.join("index.html"), "text/html; charset=utf-8")
+        } else if path == "/app.js" {
+            file_response(
+                &root.join("app.js"),
+                "application/javascript; charset=utf-8",
+            )
+        } else if path == "/data.json" {
+            file_response(&snap_path, "application/json; charset=utf-8")
+        } else if let Some(name) = path.strip_prefix("/canvas/") {
+            canvas_response(&canvas_dir, name)
+        } else {
+            (
                 "404 Not Found",
                 "text/plain; charset=utf-8",
                 b"not found".to_vec(),
-            ),
+            )
         };
 
         let header = format!(
@@ -115,5 +130,49 @@ fn file_response(path: &Path, ctype: &'static str) -> (&'static str, &'static st
             "text/plain; charset=utf-8",
             format!("missing {}", path.display()).into_bytes(),
         ),
+    }
+}
+
+fn canvas_response(canvas_dir: &Path, name: &str) -> (&'static str, &'static str, Vec<u8>) {
+    if name.is_empty()
+        || name.contains("..")
+        || name.contains('/')
+        || name.contains('\\')
+        || name.contains('\0')
+    {
+        return (
+            "400 Bad Request",
+            "text/plain; charset=utf-8",
+            b"invalid canvas path".to_vec(),
+        );
+    }
+    let path = canvas_dir.join(name);
+    let ctype = content_type_for(name);
+    match fs::read(&path) {
+        Ok(bytes) => ("200 OK", ctype, bytes),
+        Err(_) => (
+            "404 Not Found",
+            "text/plain; charset=utf-8",
+            b"canvas asset not found".to_vec(),
+        ),
+    }
+}
+
+fn content_type_for(name: &str) -> &'static str {
+    let ext = Path::new(name)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    match ext.as_str() {
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "svg" => "image/svg+xml",
+        "txt" => "text/plain; charset=utf-8",
+        "md" => "text/markdown; charset=utf-8",
+        "json" => "application/json; charset=utf-8",
+        _ => "application/octet-stream",
     }
 }

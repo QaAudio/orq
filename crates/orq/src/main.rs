@@ -6,7 +6,7 @@ use orq_core::dash::{default_snapshot_path, write_snapshot};
 use orq_core::*;
 use serde_json::json;
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 #[derive(Parser, Debug)]
@@ -67,6 +67,11 @@ enum Commands {
     Poi {
         #[command(subcommand)]
         cmd: PoiCmd,
+    },
+    /// Dashboard canvases (markdown / image / url / html display protocol)
+    Canvas {
+        #[command(subcommand)]
+        cmd: CanvasCmd,
     },
     /// Submit / manage tasks
     Run {
@@ -200,6 +205,45 @@ enum DashCmd {
         root: Option<PathBuf>,
         #[arg(long)]
         out: Option<PathBuf>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum CanvasCmd {
+    /// Publish or update a canvas POI (exactly one of --md/--body/--image/--url/--html)
+    Set {
+        key: String,
+        #[arg(long)]
+        title: Option<String>,
+        #[arg(long, default_value = "live")]
+        state: String,
+        #[arg(long)]
+        order: Option<i64>,
+        #[arg(long, default_value_t = 1)]
+        span: u8,
+        /// Markdown body from a file
+        #[arg(long)]
+        md: Option<PathBuf>,
+        /// Markdown body inline
+        #[arg(long)]
+        body: Option<String>,
+        /// Image file (copied into $ORQ_DATA_DIR/canvas/)
+        #[arg(long)]
+        image: Option<PathBuf>,
+        /// External URL (iframe)
+        #[arg(long)]
+        url: Option<String>,
+        /// HTML/SVG body from a file (sandboxed srcdoc)
+        #[arg(long)]
+        html: Option<PathBuf>,
+        #[arg(long)]
+        height: Option<u32>,
+        #[arg(long)]
+        alt: Option<String>,
+    },
+    Ls,
+    Rm {
+        key: String,
     },
 }
 
@@ -579,6 +623,9 @@ fn main() -> Result<()> {
             }
         }
         Commands::Poi { cmd } => handle_poi(&out_opts, &workspace, session, limit, &store, cmd)?,
+        Commands::Canvas { cmd } => {
+            handle_canvas(&out_opts, &workspace, session, limit, &store, &data_dir, cmd)?
+        }
         Commands::Run {
             command,
             name,
@@ -843,6 +890,183 @@ fn main() -> Result<()> {
 struct OutOpts {
     json: bool,
     fields: Option<String>,
+}
+
+fn ensure_canvas_table(store: &Store, workspace: &str) -> Result<()> {
+    if store.get_poi_table(workspace, "canvas")?.is_none() {
+        store.create_poi_table(
+            workspace,
+            "canvas",
+            "canvas",
+            vec![
+                ColumnDef {
+                    name: "order".into(),
+                    col_type: "number".into(),
+                    poi: false,
+                },
+                ColumnDef {
+                    name: "span".into(),
+                    col_type: "number".into(),
+                    poi: false,
+                },
+            ],
+        )?;
+    }
+    Ok(())
+}
+
+fn sanitize_canvas_filename(name: &str) -> Result<String> {
+    let base = Path::new(name)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("asset");
+    if base.is_empty()
+        || base.contains("..")
+        || base.contains('/')
+        || base.contains('\\')
+        || base.contains('\0')
+    {
+        bail!("invalid canvas asset filename: {name}");
+    }
+    Ok(base.to_string())
+}
+
+fn handle_canvas(
+    opts: &OutOpts,
+    workspace: &str,
+    session: Option<&str>,
+    limit: usize,
+    store: &Store,
+    data_dir: &Path,
+    cmd: CanvasCmd,
+) -> Result<()> {
+    match cmd {
+        CanvasCmd::Set {
+            key,
+            title,
+            state,
+            order,
+            span,
+            md,
+            body,
+            image,
+            url,
+            html,
+            height,
+            alt,
+        } => {
+            let sources = [
+                md.is_some(),
+                body.is_some(),
+                image.is_some(),
+                url.is_some(),
+                html.is_some(),
+            ]
+            .into_iter()
+            .filter(|b| *b)
+            .count();
+            if sources != 1 {
+                bail!("canvas set requires exactly one of --md, --body, --image, --url, --html");
+            }
+            let span = if span == 2 { 2 } else { 1 };
+            ensure_canvas_table(store, workspace)?;
+
+            let value = if let Some(path) = md {
+                let text = std::fs::read_to_string(&path)
+                    .with_context(|| format!("read markdown {}", path.display()))?;
+                json!({
+                    "v": 1,
+                    "kind": "markdown",
+                    "title": title.unwrap_or_else(|| key.clone()),
+                    "body": text,
+                })
+            } else if let Some(text) = body {
+                json!({
+                    "v": 1,
+                    "kind": "markdown",
+                    "title": title.unwrap_or_else(|| key.clone()),
+                    "body": text,
+                })
+            } else if let Some(path) = image {
+                let fname = sanitize_canvas_filename(
+                    path.file_name()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or("image.png"),
+                )?;
+                let dest_dir = data_dir.join("canvas");
+                std::fs::create_dir_all(&dest_dir)?;
+                let dest = dest_dir.join(&fname);
+                std::fs::copy(&path, &dest)
+                    .with_context(|| format!("copy image {} -> {}", path.display(), dest.display()))?;
+                let mut obj = json!({
+                    "v": 1,
+                    "kind": "image",
+                    "title": title.unwrap_or_else(|| key.clone()),
+                    "src": format!("canvas:{fname}"),
+                });
+                if let Some(a) = alt {
+                    obj["alt"] = json!(a);
+                }
+                obj
+            } else if let Some(src) = url {
+                let mut obj = json!({
+                    "v": 1,
+                    "kind": "url",
+                    "title": title.unwrap_or_else(|| key.clone()),
+                    "src": src,
+                });
+                if let Some(h) = height {
+                    obj["height"] = json!(h);
+                }
+                obj
+            } else if let Some(path) = html {
+                let text = std::fs::read_to_string(&path)
+                    .with_context(|| format!("read html {}", path.display()))?;
+                let mut obj = json!({
+                    "v": 1,
+                    "kind": "html",
+                    "title": title.unwrap_or_else(|| key.clone()),
+                    "body": text,
+                });
+                if let Some(h) = height {
+                    obj["height"] = json!(h);
+                }
+                obj
+            } else {
+                unreachable!()
+            };
+
+            let mut columns = HashMap::new();
+            columns.insert("span".into(), json!(span));
+            if let Some(o) = order {
+                columns.insert("order".into(), json!(o));
+            }
+
+            let poi = store.set_poi(
+                workspace,
+                "canvas",
+                &key,
+                value,
+                columns,
+                Some(&state),
+                StorageTier::Durable,
+                session,
+                None,
+                None,
+            )?;
+            out(opts, &poi)?;
+        }
+        CanvasCmd::Ls => {
+            ensure_canvas_table(store, workspace)?;
+            let rows = store.list_pois(workspace, "canvas", session, limit)?;
+            out(opts, &rows)?;
+        }
+        CanvasCmd::Rm { key } => {
+            let deleted = store.delete_poi(workspace, "canvas", &key)?;
+            out(opts, &json!({ "deleted": deleted, "key": key }))?;
+        }
+    }
+    Ok(())
 }
 
 fn handle_poi(

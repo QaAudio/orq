@@ -1,9 +1,9 @@
 use crate::error::Result;
 use std::path::Path;
 
-pub const SKILL_MD: &str = r#"---
+pub const SKILL_MD: &str = r##"---
 name: orq
-description: Multi-agent task orchestration via the orq CLI — workspaces, POIs, supervised tasks, triggers, model affinities, and MoA merge jobs. Use when coordinating agents, locking paths/state, routing models, or multi-model reconciliation.
+description: Multi-agent task orchestration via the orq CLI — workspaces, POIs, canvases, supervised tasks, triggers, model affinities, and MoA merge jobs. Use when coordinating agents, locking paths/state, publishing dashboard canvases, routing models, or multi-model reconciliation.
 ---
 
 # orq — multi-agent orchestrator
@@ -37,9 +37,17 @@ orq --session "$ORQ_SESSION" gc
 ## Core primitives
 - **Workspace** — sandbox (`--workspace`, default `default`)
 - **POI** — lockable record in a table (`poi get/set/lock/steal`)
+- **Canvas** — display POI in reserved `canvas` table (`canvas set/ls/rm`; kinds: markdown/image/url/html)
 - **Task** — supervised agent/process (`run/await/cancel/kill`)
 - **Trigger** — declarative rules (`trigger add` …)
 - **Model / Affinity / Job** — eval → seeded route → single|race|moa
+
+## Canvases (dashboard display)
+```bash
+orq canvas set plan --md ./plan.md
+orq canvas set shot --image ./out.png
+orq dash serve --port 9847
+```
 
 ## Model routing + MoA
 ```bash
@@ -58,7 +66,7 @@ orq run --claim "src/engine/**" --name edit -- "…"
 
 ## Recipes
 See `recipes/`: linear-sync, central-committer, review-gate, preland-gate, queue-drain, model-routing, moa-merge.
-"#;
+"##;
 
 pub const AGENTS_SNIPPET: &str = r#"
 ## orq (multi-agent orchestration)
