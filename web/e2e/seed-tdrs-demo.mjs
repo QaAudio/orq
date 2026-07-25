@@ -49,7 +49,7 @@ function run(args, { allowFail = false } = {}) {
   return r;
 }
 
-function md(name) {
+function fixture(name) {
   const p = join(fixtures, name);
   if (!existsSync(p)) throw new Error(`missing fixture: ${p}`);
   return p;
@@ -265,27 +265,66 @@ run(
 );
 
 const canvases = [
-  { key: "loop-health", file: "loop-health.md", title: "Loop Health", order: "1" },
-  { key: "loop-roadmap", file: "loop-roadmap.md", title: "Loop Roadmap", order: "2" },
-  { key: "loop-preflight", file: "loop-preflight.md", title: "Loop Preflight", order: "3" },
-  { key: "loop-checks", file: "loop-checks.md", title: "Loop Checks", order: "4" },
-  { key: "loop-review", file: "loop-review.md", title: "Loop Review", order: "5" },
-  { key: "computer-focus", file: "computer-focus.md", title: "Computer focus", order: "6" },
+  {
+    key: "orchestration-map",
+    file: "orchestration-map.md",
+    title: "Live orchestration map",
+    kind: "md",
+    order: "1",
+    span: "2",
+  },
+  {
+    key: "demo-overview",
+    file: "demo-overview.md",
+    title: "Meet porq",
+    kind: "md",
+    order: "2",
+  },
+  {
+    key: "workspace-pulse",
+    file: "workspace-pulse.html",
+    title: "Workspace pulse",
+    kind: "html",
+    order: "3",
+  },
+  {
+    key: "loop-checks",
+    file: "loop-checks.md",
+    title: "Verification matrix",
+    kind: "md",
+    order: "4",
+  },
+  {
+    key: "loop-review",
+    file: "loop-review.md",
+    title: "Human review gate",
+    kind: "md",
+    order: "5",
+  },
+  {
+    key: "computer-focus",
+    file: "computer-focus.md",
+    title: "Resource lease",
+    kind: "md",
+    order: "6",
+  },
 ];
 
 for (const c of canvases) {
-  run([
+  const args = [
     "canvas",
     "set",
     c.key,
     "--title",
     c.title,
-    "--md",
-    md(c.file),
+    c.kind === "html" ? "--html" : "--md",
+    fixture(c.file),
     "--order",
     c.order,
-    "--json",
-  ]);
+  ];
+  if (c.span) args.push("--span", c.span);
+  args.push("--json");
+  run(args);
 }
 
 run(["dash", "snapshot", "--json"]);
@@ -310,5 +349,5 @@ console.log(
   "canvases:",
   canvases.map((c) => c.key).join(", "),
   "| body chars sample:",
-  readFileSync(md("loop-health.md"), "utf8").length
+  readFileSync(fixture("demo-overview.md"), "utf8").length
 );
