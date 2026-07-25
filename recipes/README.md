@@ -1,4 +1,4 @@
-# orq recipes
+# porq recipes
 
 Small, runnable patterns. Point `ORQ_DATA_DIR` at a temp folder, smash buttons,
 steal the plot for your own agents.
@@ -16,4 +16,4 @@ steal the plot for your own agents.
 Full kitchen-sink check: `../scripts/smoke.ps1` (or `../scripts/smoke.sh`).
 
 Each recipe is documentation first — copy the CLI sequence into your own
-scripts. Prefer `--json` when an agent is reading the output.
+scripts (`porq …`). Prefer `--json` when an agent is reading the output.

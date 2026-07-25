@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>orq dashboard</title>
+<title>porq dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@600;700&display=swap" rel="stylesheet" />
@@ -60,7 +60,7 @@
     align-items: center;
     gap: 1rem;
     flex-wrap: wrap;
-    padding: 0.95rem 1.4rem;
+    padding: 0.85rem 1.4rem;
     border-bottom: 1px solid var(--border);
     background: color-mix(in srgb, var(--bg) 88%, transparent);
     backdrop-filter: blur(10px);
@@ -86,6 +86,34 @@
     font-size: 0.95rem;
     color: var(--text);
     letter-spacing: 0.04em;
+  }
+
+  .view-tabs {
+    display: inline-flex;
+    gap: 0.25rem;
+    padding: 0.2rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+  }
+
+  .view-tab {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.35rem 0.85rem;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+
+  .view-tab:hover { color: var(--text); }
+  .view-tab.active {
+    background: var(--amber-dim);
+    color: var(--amber);
   }
 
   .header-meta {
@@ -140,6 +168,53 @@
     100% { box-shadow: 0 0 0 0 transparent; }
   }
 
+  #pulse {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+    padding: 0.55rem 1.4rem;
+    border-bottom: 1px solid var(--border-soft);
+    background: var(--panel);
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 0.76rem;
+  }
+
+  #pulse:hover { background: var(--panel-elev); color: var(--text); }
+
+  .pulse-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--teal);
+    flex-shrink: 0;
+  }
+
+  .pulse-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.12rem 0.45rem;
+    border-radius: 999px;
+    border: 1px solid var(--border-soft);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.72rem;
+  }
+
+  .pulse-chip strong { color: var(--amber); font-weight: 600; }
+
+  .pulse-event {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 0.72rem;
+    max-width: 42%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   #error {
     display: none;
     background: var(--red-dim);
@@ -165,7 +240,10 @@
     border-radius: 4px;
   }
 
-  main {
+  .view { display: none; }
+  .view.active { display: block; }
+
+  #view-details.active {
     display: grid;
     grid-template-columns: 1.2fr 1fr;
     gap: var(--gap);
@@ -175,8 +253,16 @@
   }
 
   @media (max-width: 900px) {
-    main { grid-template-columns: 1fr; }
+    #view-details.active { grid-template-columns: 1fr; }
   }
+
+  #view-canvases {
+    padding: 1.25rem;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  #view-canvases.active { display: block; }
 
   section {
     background: linear-gradient(180deg, var(--panel-elev) 0%, var(--panel) 100%);
@@ -275,13 +361,12 @@
   }
 
   .done { background: var(--green-dim); color: var(--green); }
-  .running, .queued, .starting, .reconciling, .planned { background: var(--yellow-dim); color: var(--yellow); }
+  .running, .queued, .starting, .reconciling, .planned, .live { background: var(--yellow-dim); color: var(--yellow); }
   .failed, .cancelled, .killed { background: var(--red-dim); color: var(--red); }
-  .pending, .blocked, .ready, .complete, .aggregated, .proposed, .approved { background: var(--teal-dim); color: var(--teal); }
+  .pending, .blocked, .ready, .complete, .aggregated, .proposed, .approved, .archived { background: var(--teal-dim); color: var(--teal); }
 
   .wide { grid-column: 1 / -1; }
 
-  /* Event timeline */
   .event-list {
     display: flex;
     flex-direction: column;
@@ -301,7 +386,6 @@
     border: 1px solid var(--border-soft);
     background: var(--bg);
     position: relative;
-    transition: background 200ms ease, border-color 200ms ease;
   }
 
   .event-row::before {
@@ -391,11 +475,10 @@
 
   .file-chip:hover { border-color: var(--teal); color: var(--teal); }
 
-  /* Canvas cards */
   .canvas-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.85rem;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 1rem;
   }
 
   @media (max-width: 900px) {
@@ -403,9 +486,9 @@
   }
 
   .canvas-card {
-    border: 1px solid var(--border-soft);
+    border: 1px solid var(--border);
     border-radius: var(--radius);
-    background: var(--bg);
+    background: linear-gradient(180deg, var(--panel-elev) 0%, var(--panel) 100%);
     overflow: hidden;
     min-width: 0;
   }
@@ -418,15 +501,15 @@
     justify-content: space-between;
     gap: 0.6rem;
     flex-wrap: wrap;
-    padding: 0.55rem 0.75rem;
+    padding: 0.65rem 0.85rem;
     border-bottom: 1px solid var(--border-soft);
-    background: var(--panel-elev);
+    background: color-mix(in srgb, var(--bg) 40%, var(--panel-elev));
   }
 
   .canvas-title {
     font-family: var(--font-display);
     font-weight: 600;
-    font-size: 0.9rem;
+    font-size: 1rem;
     color: var(--text);
   }
 
@@ -439,8 +522,8 @@
   }
 
   .canvas-body {
-    padding: 0.75rem;
-    max-height: 420px;
+    padding: 0.9rem;
+    max-height: 520px;
     overflow: auto;
   }
 
@@ -463,21 +546,21 @@
     margin: 0.4rem 0 0.35rem;
     color: var(--amber);
   }
-  .canvas-md h1 { font-size: 1.15rem; }
-  .canvas-md h2 { font-size: 1.02rem; }
-  .canvas-md h3 { font-size: 0.92rem; }
-  .canvas-md p, .canvas-md li { margin: 0.25rem 0; line-height: 1.45; color: var(--text); }
+  .canvas-md h1 { font-size: 1.2rem; }
+  .canvas-md h2 { font-size: 1.05rem; }
+  .canvas-md h3 { font-size: 0.95rem; }
+  .canvas-md p, .canvas-md li { margin: 0.25rem 0; line-height: 1.5; color: var(--text); }
   .canvas-md ul, .canvas-md ol { padding-left: 1.2rem; margin: 0.3rem 0; }
   .canvas-md code {
     font-family: var(--font-mono);
     font-size: 0.78rem;
-    background: var(--panel-elev);
+    background: var(--bg);
     padding: 0.05rem 0.3rem;
     border-radius: 4px;
     color: var(--teal);
   }
   .canvas-md pre {
-    background: var(--panel-elev);
+    background: var(--bg);
     border: 1px solid var(--border-soft);
     border-radius: 6px;
     padding: 0.55rem 0.7rem;
@@ -493,22 +576,54 @@
     font-size: 0.76rem;
     color: var(--muted);
   }
+
+  .canvas-empty {
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+    color: var(--muted);
+    background: var(--panel);
+  }
+  .canvas-empty code {
+    color: var(--amber);
+    background: var(--bg);
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+  }
 </style>
 </head>
 <body>
 <header>
   <div class="brand">
-    <span class="brand-mark">orq</span>
+    <span class="brand-mark">porq</span>
     <span class="brand-sub">dashboard</span>
   </div>
+  <nav class="view-tabs" role="tablist" aria-label="Dashboard view">
+    <button type="button" class="view-tab active" data-view="canvases" id="tab-canvases" role="tab" aria-selected="true">Canvases</button>
+    <button type="button" class="view-tab" data-view="details" id="tab-details" role="tab" aria-selected="false">Details</button>
+  </nav>
   <div class="header-meta">
     <span id="workspace">workspace —</span>
     <span id="stamp">connecting…</span>
   </div>
 </header>
+<div id="pulse" title="Open Details view" role="button" tabindex="0">
+  <span class="pulse-dot" aria-hidden="true"></span>
+  <span class="pulse-chip"><strong id="pulse-tasks">0</strong> tasks</span>
+  <span class="pulse-chip"><strong id="pulse-pois">0</strong> pois</span>
+  <span class="pulse-chip"><strong id="pulse-jobs">0</strong> jobs</span>
+  <span class="pulse-chip"><strong id="pulse-events">0</strong> events</span>
+  <span class="pulse-event" id="pulse-event">waiting for pulse…</span>
+</div>
 <div id="error" role="alert"></div>
-<div id="empty-hint">No rows yet — seed data with <code>orq</code> or wait for snapshot refresh.</div>
-<main>
+<div id="empty-hint">No rows yet — seed data with <code>porq</code> or wait for snapshot refresh.</div>
+
+<div id="view-canvases" class="view active" role="tabpanel">
+  <div id="canvases"><p class="placeholder">loading…</p></div>
+</div>
+
+<main id="view-details" class="view" role="tabpanel">
   <section>
     <div class="section-head">
       <h2>Board (POIs)</h2>
@@ -536,13 +651,6 @@
       <span class="count" id="count-aff">0</span>
     </div>
     <div class="panel-body" id="aff"><p class="placeholder">loading…</p></div>
-  </section>
-  <section class="wide">
-    <div class="section-head">
-      <h2>Canvases</h2>
-      <span class="count" id="count-canvases">0</span>
-    </div>
-    <div class="panel-body" id="canvases"><p class="placeholder">loading…</p></div>
   </section>
   <section class="wide">
     <div class="section-head">

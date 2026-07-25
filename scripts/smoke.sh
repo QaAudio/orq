@@ -3,7 +3,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 cargo build -q
-ORQ="$ROOT/target/debug/orq"
+ORQ="$ROOT/target/debug/porq"
 DATA="$(mktemp -d)"
 export ORQ_DATA_DIR="$DATA"
 export ORQ_WORKSPACE=default

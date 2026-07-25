@@ -69,7 +69,7 @@ pub fn run_serve(
     let addr = format!("127.0.0.1:{port}");
     let listener = TcpListener::bind(&addr).with_context(|| format!("bind {addr}"))?;
     eprintln!(
-        "orq dash serve http://{addr}/ (root={}, data={})",
+        "porq dash serve http://{addr}/ (root={}, data={})",
         root.display(),
         snap_path.display()
     );

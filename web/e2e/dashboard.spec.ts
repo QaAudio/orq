@@ -23,7 +23,7 @@ async function freePort(): Promise<number> {
   });
 }
 
-test.describe("orq dashboard", () => {
+test.describe("porq dashboard", () => {
   let proc: ChildProcess | undefined;
   let baseURL = "";
 
@@ -58,12 +58,11 @@ test.describe("orq dashboard", () => {
         stdio: ["ignore", "pipe", "pipe"],
       }
     );
-    // wait until server announces
     await new Promise<void>((resolve, reject) => {
       const t = setTimeout(() => reject(new Error("dash serve timeout")), 15_000);
       const onData = (buf: Buffer) => {
         const s = buf.toString();
-        if (s.includes("orq dash serve")) {
+        if (s.includes("porq dash serve") || s.includes("orq dash serve")) {
           clearTimeout(t);
           resolve();
         }
@@ -83,25 +82,25 @@ test.describe("orq dashboard", () => {
     }
   });
 
-  test("renders seeded board, tasks, and stamp", async ({ page }) => {
+  test("canvas-first view + details fallback", async ({ page }) => {
+    await page.addInitScript(() => {
+      try {
+        localStorage.removeItem("porq.dash.view");
+      } catch {
+        /* ignore */
+      }
+    });
     await page.goto(baseURL + "/");
     await expect(page.locator("#stamp")).not.toHaveText("connecting…", {
       timeout: 10_000,
     });
-    await expect(page.locator("#stamp")).not.toHaveText("waiting for monitor…");
-    await expect(page.locator("#stamp")).not.toHaveText(/^$/);
     await expect(page.locator("#stamp")).not.toHaveText("error");
+    await expect(page.locator(".brand-mark")).toHaveText("porq");
 
-    await expect(page.locator("#board")).toContainText("alpha");
-    await expect(page.locator("#board")).toContainText("beta");
-    await expect(page.locator("#tasks")).toContainText("e2e-task");
-    await expect(page.locator("#error")).not.toHaveClass(/visible/);
-    await expect(page.locator(".pill").first()).toBeVisible();
-    await expect(page.locator("#events .event-row").first()).toBeVisible();
-
-    // Canvas protocol
+    // Primary view: canvases
+    await expect(page.locator("#view-canvases")).toHaveClass(/active/);
+    await expect(page.locator("#view-details")).not.toHaveClass(/active/);
     await expect(page.locator(".canvas-card")).toHaveCount(3);
-    await expect(page.locator('.canvas-card[data-key="plan"]')).toContainText("E2E Plan");
     await expect(page.locator('.canvas-card[data-key="plan"] .canvas-md h2')).toContainText(
       "E2E Plan"
     );
@@ -113,5 +112,20 @@ test.describe("orq dashboard", () => {
     await expect(page.locator('.canvas-card[data-kind="vega-lite"] .canvas-fallback')).toContainText(
       "vega-lite"
     );
+
+    // Pulse strip
+    await expect(page.locator("#pulse-tasks")).not.toHaveText("0");
+    await expect(page.locator("#pulse-pois")).not.toHaveText("0");
+    await expect(page.locator("#pulse-event")).not.toHaveText("waiting for pulse…");
+
+    // Details view
+    await page.locator("#tab-details").click();
+    await expect(page.locator("#view-details")).toHaveClass(/active/);
+    await expect(page.locator("#view-canvases")).not.toHaveClass(/active/);
+    await expect(page.locator("#board")).toContainText("alpha");
+    await expect(page.locator("#board")).toContainText("beta");
+    await expect(page.locator("#tasks")).toContainText("e2e-task");
+    await expect(page.locator("#error")).not.toHaveClass(/visible/);
+    await expect(page.locator("#events .event-row").first()).toBeVisible();
   });
 });

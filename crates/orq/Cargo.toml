@@ -3,10 +3,10 @@ name = "orq"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Multi-agent task orchestration CLI"
+description = "Progressive multi-agent orchestration CLI (porq)"
 
 [[bin]]
-name = "orq"
+name = "porq"
 path = "src/main.rs"
 
 [dependencies]

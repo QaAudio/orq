@@ -8,10 +8,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..", "..");
 const orq =
   process.env.ORQ_BIN ||
-  join(root, "target", "debug", process.platform === "win32" ? "orq.exe" : "orq");
+  join(root, "target", "debug", process.platform === "win32" ? "porq.exe" : "porq");
 
 if (!existsSync(orq)) {
-  console.error(`orq binary missing: ${orq}\nRun: cargo build -p orq`);
+  console.error(`porq binary missing: ${orq}\nRun: cargo build -p orq`);
   process.exit(1);
 }
 

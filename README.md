@@ -1,17 +1,16 @@
-# orq
+# porq
 
-> **o**rchestrate · **r**oute · **q**ueue
+> **p**rogressive **orq**uestration — one binary, layers you opt into
 >
-> The progressive orchestration system for multi-agent work.
 > Start with one command. Stop wherever it stops hurting.
 
 Most orchestrators ask you to move in: adopt the platform, learn the DSL,
-deploy the control plane, *then* run your first task. **orq** works the other
+deploy the control plane, *then* run your first task. **porq** works the other
 way around. It's a single local binary that is useful at every layer of
 adoption — and each layer is opt-in:
 
 ```text
-run one task            →  orq run --sync -- "cargo test"
+run one task            →  porq run --sync -- "cargo test"
 share state             →  + POIs (versioned JSON cells)
 stop collisions         →  + leases & path claims
 react to changes        →  + triggers & the daemon
@@ -24,9 +23,9 @@ same; the system underneath grows with you — from "glorified task runner on my
 laptop" to "shared cloud desk for a swarm of agents" without a single
 Kubernetes manifest.
 
-![orq live dashboard — board, tasks, jobs, event timeline](docs/img/dashboard.png)
+![porq live dashboard — canvas-first view](docs/img/dashboard.png)
 
-<p align="center"><sub>The real UI — <code>orq dash serve</code> on localhost, refreshed every second.</sub></p>
+<p align="center"><sub>Canvas-first UI — <code>porq dash serve</code>. Ops panels live under <strong>Details</strong>.</sub></p>
 
 ---
 
@@ -34,11 +33,11 @@ Kubernetes manifest.
 
 You have three agents editing the same repo. One is rewriting the API. One is
 fixing tests. One just invented a new folder name. Without coordination you
-get git roulette. orq is the shared desk: sticky notes that version, leases
+get git roulette. porq is the shared desk: sticky notes that version, leases
 that expire, tasks that claim files, triggers that react, and a dashboard that
 proves something actually happened.
 
-The trick is that you don't adopt "the desk" on day one. You adopt `orq run`.
+The trick is that you don't adopt "the desk" on day one. You adopt `porq run`.
 The rest is sitting there when you need it.
 
 ---
@@ -47,7 +46,7 @@ The rest is sitting there when you need it.
 
 | Layer | You add | You get |
 |-------|---------|---------|
-| **0 — Run** | `orq run` | Supervised tasks: await, retry, cancel, kill, logs. No daemon needed with `--sync`. |
+| **0 — Run** | `porq run` | Supervised tasks: await, retry, cancel, kill, logs. No daemon needed with `--sync`. |
 | **1 — Remember** | POI tables (+ `canvas`) | Versioned JSON cells (board cards, approvals, dashboard canvases). CAS, tiers, sessions. |
 | **2 — Not collide** | Leases & claims | Time-boxed locks with holders; `--claim "src/**"` fences files for a task's lifetime. |
 | **3 — React** | Triggers | "When X happens, do Y" with blocking vetoes, budgets, cascade guards. Daemon auto-spawns. |
@@ -69,10 +68,11 @@ Taskwarrior, Hatchet, and the Loop Meta vibe from td-rs.
 git clone git@github.com:QaAudio/orq.git
 cd orq
 cargo build --release
-# binary: target/release/orq
+# binary: target/release/porq
 ```
 
 Optional: set `ORQ_DATA_DIR` (defaults to your platform's local data dir `/orq`).
+Env vars still use the `ORQ_*` prefix; crate paths are unchanged until the repo rename.
 
 Smoke everything once:
 
@@ -94,9 +94,9 @@ Expand, copy-paste, climb. Deeper plots live under
 <summary><strong>Layer 0 — Run a task</strong> — no daemon, no ceremony</summary>
 
 ```bash
-orq init
-orq run --sync --name hi -- "echo hello from orq"
-orq status --json
+porq init
+porq run --sync --name hi -- "echo hello from porq"
+porq status --json
 ```
 
 `--sync` blocks and supervises inline. Drop it and a daemon quietly takes over.
@@ -107,9 +107,9 @@ orq status --json
 <summary><strong>Layer 1 — Pin shared state</strong> — POIs, the sticky notes that version</summary>
 
 ```bash
-orq poi table create notes --cols body:string:poi
-orq poi set notes hello '"world"' --tier ephemeral
-orq poi get notes hello --json
+porq poi table create notes --cols body:string:poi
+porq poi set notes hello '"world"' --tier ephemeral
+porq poi get notes hello --json
 ```
 
 Every `set` bumps a version; `--if-version` gives you compare-and-swap.
@@ -120,8 +120,8 @@ Every `set` bumps a version; `--if-version` gives you compare-and-swap.
 <summary><strong>Layer 2 — Stop collisions</strong> — leases and path claims</summary>
 
 ```bash
-orq poi lock notes hello --holder agent-a --ttl 300
-orq run --sync --name refactor --claim "src/**" -- "cargo test -p foo"
+porq poi lock notes hello --holder agent-a --ttl 300
+porq run --sync --name refactor --claim "src/**" -- "cargo test -p foo"
 ```
 
 Overlapping claims wait or fail closed — leases, not vibes. `poi steal` for recovery.
@@ -132,7 +132,7 @@ Overlapping claims wait or fail closed — leases, not vibes. `poi steal` for re
 <summary><strong>Layer 3 — React to changes</strong> — triggers with budgets</summary>
 
 ```bash
-orq trigger add on-broken --on poi.changed --where-cond "state==broken" --do-action "spawn:./remediate.sh"
+porq trigger add on-broken --on poi.changed --where-cond "state==broken" --do-action "spawn:./remediate.sh"
 ```
 
 Blocking triggers can veto; budgets and cascade guards keep a flaky rule from
@@ -144,10 +144,10 @@ becoming a fork-bomb.
 <summary><strong>Layer 4 — Route across models</strong> — affinity + race / MoA</summary>
 
 ```bash
-orq model add fast --cli "echo FAST:{cmd}" --capability code
-orq model add strong --cli "echo STRONG:{cmd}" --capability code
-orq affinity set code.edit strong --score 0.9
-orq run --sync --class code.edit --strategy moa --moa-k 2 --name edit -- "propose"
+porq model add fast --cli "echo FAST:{cmd}" --capability code
+porq model add strong --cli "echo STRONG:{cmd}" --capability code
+porq affinity set code.edit strong --score 0.9
+porq run --sync --class code.edit --strategy moa --moa-k 2 --name edit -- "propose"
 ```
 
 Affinities learn from outcomes (EMA). `race` for the first good answer, `moa`
@@ -160,8 +160,8 @@ for propose → aggregate.
 
 ```bash
 cp .env.example .env   # fill ORQ_DB_URL + TOKEN
-orq --remote init
-orq --remote poi set board hello '{"msg":"shared"}'
+porq --remote init
+porq --remote poi set board hello '{"msg":"shared"}'
 ```
 
 Opt-in only: without `--remote`, you stay local. A stray `.env` never hijacks you.
@@ -172,9 +172,9 @@ Opt-in only: without `--remote`, you stay local. A stray `.env` never hijacks yo
 <summary><strong>Bonus — Publish a canvas</strong> — markdown / image / url on the dashboard</summary>
 
 ```bash
-orq canvas set plan --body "## Next\n- probe\n- ship"
-orq canvas set shot --image ./out.png --title "Render"
-orq dash serve --port 9847
+porq canvas set plan --body "## Next\n- probe\n- ship"
+porq canvas set shot --image ./out.png --title "Render"
+porq dash serve --port 9847
 ```
 
 Canvases are POIs in the reserved `canvas` table — versioned, lockable, live within 1s.
@@ -185,18 +185,18 @@ Canvases are POIs in the reserved `canvas` table — versioned, lockable, live w
 <summary><strong>Bonus — Watch the pulse</strong> — that's the screenshot above</summary>
 
 ```bash
-orq dash snapshot
-orq dash serve --port 9847
+porq dash snapshot
+porq dash serve --port 9847
 # → http://127.0.0.1:9847/
 ```
 
 </details>
 
 <details>
-<summary><strong>Bonus — Teach Cursor about orq</strong> — skill + AGENTS snippet</summary>
+<summary><strong>Bonus — Teach Cursor about porq</strong> — skill + AGENTS snippet</summary>
 
 ```bash
-orq integrate cursor --path /path/to/host/repo
+porq integrate cursor --path /path/to/host/repo
 ```
 
 Agents then speak POI / claim / trigger instead of inventing folklore.
@@ -207,7 +207,7 @@ Agents then speak POI / claim / trigger instead of inventing folklore.
 
 ## Workflows that emerge
 
-orq is deliberately small as a *product* and very useful as a *protocol*.
+porq is deliberately small as a *product* and very useful as a *protocol*.
 Each workflow below is just layers composed — nothing here needed a new feature:
 
 ### Multi-agent coding desk (layers 1–3)
@@ -215,7 +215,7 @@ Each workflow below is just layers composed — nothing here needed a new featur
 Several Cursor / CLI agents share one workspace.
 
 1. A `board` POI table holds tickets (`todo` → `doing` → `done`).
-2. Each agent **locks** a card (`orq poi lock board T-12 --holder agent-a`).
+2. Each agent **locks** a card (`porq poi lock board T-12 --holder agent-a`).
 3. Tasks **claim** the paths they will touch.
 4. A trigger cancels stale work when a card flips to `blocked`.
 5. Dashboard on a second monitor so humans can interrupt without Slack archaeology.
@@ -241,7 +241,7 @@ Chaos-free git even when five agents feel inspired.
 ### Roadmap sync, Linear ↔ local (layers 1 + 0)
 
 A durable POI table mirrors external tickets; a **service** task polls and
-CAS-writes. Agents never talk to Linear directly — they talk to orq. The
+CAS-writes. Agents never talk to Linear directly — they talk to porq. The
 syncer is the diplomat.
 
 ### Verify fan-out before land (layer 3)
@@ -284,11 +284,19 @@ That's the real UI at the top of this README. Source lives in
 [`web/dashboard/`](web/dashboard/), served over **HTTP** (not `file://`).
 
 ```bash
-orq dash snapshot                 # → $ORQ_DATA_DIR/dash/data.json
-orq dash serve --port 9847        # static UI + /data.json (1s refresh)
+porq dash snapshot                 # → $ORQ_DATA_DIR/dash/data.json
+porq dash serve --port 9847        # static UI + /data.json (1s refresh)
 ```
 
 Override static root with `--root` or `ORQ_DASH_ROOT`.
+
+### Two views
+
+- **Canvases** (primary, default) — agent-published markdown / image / url / html cards. Wide grid, tall media.
+- **Details** (fallback) — board, tasks, jobs, affinities, events, files. Auto-opens when there are zero canvases.
+- **Pulse strip** — always-on counts + latest event; click to jump to Details.
+
+Tab choice persists in `localStorage`.
 
 ### Canvases (display protocol v1)
 
@@ -308,11 +316,11 @@ table. The dashboard polls them with everything else — no new transport.
 `columns.span` (`1`|`2`). State pill: `live` / `done` / `archived`.
 
 ```bash
-orq canvas set plan --md ./notes.md --order 1
-orq canvas set shot --image ./frame.png --span 2
-orq canvas set report --url https://example.com/status --height 480
-orq canvas ls --json
-orq canvas rm plan
+porq canvas set plan --md ./notes.md --order 1
+porq canvas set shot --image ./frame.png --span 2
+porq canvas set report --url https://example.com/status --height 480
+porq canvas ls --json
+porq canvas rm plan
 ```
 
 ### Dashboard E2E (no LLM)
@@ -335,22 +343,22 @@ zero code changes to switch.
 
 | Mode | Backend | How you get it |
 |------|---------|----------------|
-| **Local** (default) | SQLite file `<data_dir>/orq.db` | just run `orq` |
-| **Remote** | Turso / any libSQL over HTTP | `orq --remote` + `ORQ_DB_URL` / `ORQ_DB_TOKEN` |
+| **Local** (default) | SQLite file `<data_dir>/orq.db` | just run `porq` |
+| **Remote** | Turso / any libSQL over HTTP | `porq --remote` + `ORQ_DB_URL` / `ORQ_DB_TOKEN` |
 
 ```bash
 # .env (gitignored) — see .env.example
 ORQ_DB_URL=libsql://YOUR_DB.turso.io
 ORQ_DB_TOKEN=YOUR_TOKEN_HERE
 
-orq --remote init
-orq --remote workspace drop old-ws --yes   # destructive cloud hygiene
+porq --remote init
+porq --remote workspace drop old-ws --yes   # destructive cloud hygiene
 ```
 
 Notes worth knowing:
 
 - Multi-statement mutations run in one transaction (`BEGIN IMMEDIATE` locally).
-- Live Turso E2E: `cargo test -p orq-core --test turso_e2e` (skips if no creds).
+- Live Turso E2E: `cargo test -p porq-core --test turso_e2e` (skips if no creds).
 - Embedded replica (local reads, synced writes) is a planned follow-up.
 - Lease expiry uses client clocks — keep NTP honest when several writers share remote.
 
@@ -371,8 +379,8 @@ Notes worth knowing:
          └── optional Turso / libSQL
 ```
 
-- Daemon-optional: `orq run --sync` needs none; unsupervised `run` auto-spawns
-  `orq daemon run` (localhost TCP + port file).
+- Daemon-optional: `porq run --sync` needs none; unsupervised `run` auto-spawns
+  `porq daemon run` (localhost TCP + port file).
 - Every mutation emits an event. Follow the log like a black box recorder.
 - Locks are **leases** (TTL + holder). Use `poi steal` for recovery theatre.
 - Claims (`--claim "src/**"`) are write leases on the `paths` table for the task lifetime.

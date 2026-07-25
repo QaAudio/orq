@@ -4,8 +4,8 @@ Set-Location $Root
 
 Write-Host "== build =="
 cargo build -q
-$Orq = Join-Path $Root "target\debug\orq.exe"
-if (-not (Test-Path $Orq)) { throw "orq binary missing" }
+$Orq = Join-Path $Root "target\debug\porq.exe"
+if (-not (Test-Path $Orq)) { throw "porq binary missing - run: cargo build -p orq" }
 
 $Data = Join-Path $env:TEMP ("orq-smoke-" + [guid]::NewGuid().ToString("n"))
 New-Item -ItemType Directory -Path $Data | Out-Null
@@ -52,7 +52,7 @@ Write-Host "== integrate cursor (temp host) =="
 $HostDir = Join-Path $Data "host"
 New-Item -ItemType Directory -Path $HostDir | Out-Null
 Invoke-Orq integrate cursor --path $HostDir --json | Out-Null
-if (-not (Test-Path (Join-Path $HostDir ".cursor\skills\orq\SKILL.md"))) {
+if (-not (Test-Path (Join-Path $HostDir ".cursor\skills\porq\SKILL.md"))) {
     throw "skill not written"
 }
 

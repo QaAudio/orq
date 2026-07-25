@@ -253,39 +253,6 @@
     return `<pre class="canvas-fallback">${esc(pretty)}</pre>`;
   }
 
-  function renderCanvases(canvases) {
-    if (!canvases.length) {
-      return `<p class="placeholder">none — publish with <code>orq canvas set</code></p>`;
-    }
-    const cards = canvases
-      .map((poi) => {
-        const desc = canvasDescriptor(poi);
-        const title = desc.title || poi.key || "canvas";
-        const span =
-          (poi.columns && (poi.columns.span === 2 || poi.columns.span === "2")) ||
-          desc.span === 2
-            ? " span-2"
-            : "";
-        const kind = (desc.kind || "unknown").toString();
-        return (
-          `<article class="canvas-card${span}" data-key="${esc(poi.key)}" data-kind="${esc(kind)}">` +
-          `<div class="canvas-head">` +
-          `<span class="canvas-title">${esc(title)}</span>` +
-          `<div class="canvas-meta">` +
-          `<span class="mono">${esc(kind)}</span>` +
-          `${pill(poi.state || "live")}` +
-          `<span title="v${esc(poi.version)} · ${esc(poi.updated_at || "")}">v${esc(
-            poi.version
-          )} · ${esc(relTime(poi.updated_at))}</span>` +
-          `</div></div>` +
-          `<div class="canvas-body">${renderCanvasBody(desc)}</div>` +
-          `</article>`
-        );
-      })
-      .join("");
-    return `<div class="canvas-grid">${cards}</div>`;
-  }
-
   function renderEvents(events) {
     const rows = events
       .slice()
@@ -326,6 +293,112 @@
     return `<div class="file-grid">${chips}</div>`;
   }
 
+  function renderCanvases(canvases) {
+    if (!canvases.length) {
+      return (
+        `<div class="canvas-empty">` +
+        `<p>No canvases yet — publish with <code>porq canvas set</code></p>` +
+        `<p>Canvases are the primary view. Ops panels live under <strong>Details</strong>.</p>` +
+        `</div>`
+      );
+    }
+    const cards = canvases
+      .map((poi) => {
+        const desc = canvasDescriptor(poi);
+        const title = desc.title || poi.key || "canvas";
+        const span =
+          (poi.columns && (poi.columns.span === 2 || poi.columns.span === "2")) ||
+          desc.span === 2
+            ? " span-2"
+            : "";
+        const kind = (desc.kind || "unknown").toString();
+        return (
+          `<article class="canvas-card${span}" data-key="${esc(poi.key)}" data-kind="${esc(kind)}">` +
+          `<div class="canvas-head">` +
+          `<span class="canvas-title">${esc(title)}</span>` +
+          `<div class="canvas-meta">` +
+          `<span class="mono">${esc(kind)}</span>` +
+          `${pill(poi.state || "live")}` +
+          `<span title="v${esc(poi.version)} · ${esc(poi.updated_at || "")}">v${esc(
+            poi.version
+          )} · ${esc(relTime(poi.updated_at))}</span>` +
+          `</div></div>` +
+          `<div class="canvas-body">${renderCanvasBody(desc)}</div>` +
+          `</article>`
+        );
+      })
+      .join("");
+    return `<div class="canvas-grid">${cards}</div>`;
+  }
+
+  const VIEW_KEY = "porq.dash.view";
+  const viewCanvases = document.getElementById("view-canvases");
+  const viewDetails = document.getElementById("view-details");
+  const tabCanvases = document.getElementById("tab-canvases");
+  const tabDetails = document.getElementById("tab-details");
+  const pulseEl = document.getElementById("pulse");
+  let userPickedView = false;
+  let currentView = "canvases";
+
+  function applyView(view) {
+    currentView = view === "details" ? "details" : "canvases";
+    viewCanvases.classList.toggle("active", currentView === "canvases");
+    viewDetails.classList.toggle("active", currentView === "details");
+    tabCanvases.classList.toggle("active", currentView === "canvases");
+    tabDetails.classList.toggle("active", currentView === "details");
+    tabCanvases.setAttribute("aria-selected", currentView === "canvases" ? "true" : "false");
+    tabDetails.setAttribute("aria-selected", currentView === "details" ? "true" : "false");
+  }
+
+  function setView(view, { persist = true, user = false } = {}) {
+    if (user) userPickedView = true;
+    applyView(view);
+    if (persist) {
+      try {
+        localStorage.setItem(VIEW_KEY, currentView);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  try {
+    const saved = localStorage.getItem(VIEW_KEY);
+    if (saved === "details" || saved === "canvases") {
+      userPickedView = true;
+      applyView(saved);
+    }
+  } catch {
+    /* ignore */
+  }
+
+  tabCanvases.addEventListener("click", () => setView("canvases", { user: true }));
+  tabDetails.addEventListener("click", () => setView("details", { user: true }));
+  pulseEl.addEventListener("click", () => setView("details", { user: true }));
+  pulseEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setView("details", { user: true });
+    }
+  });
+
+  function updatePulse(board, tasks, jobs, events) {
+    document.getElementById("pulse-tasks").textContent = String(tasks.length);
+    document.getElementById("pulse-pois").textContent = String(board.length);
+    document.getElementById("pulse-jobs").textContent = String(jobs.length);
+    document.getElementById("pulse-events").textContent = String(events.length);
+    const last = events.length ? events[events.length - 1] : null;
+    const pulseEvent = document.getElementById("pulse-event");
+    if (!last) {
+      pulseEvent.textContent = "waiting for pulse…";
+      return;
+    }
+    const id = last.id != null ? "#" + last.id : "";
+    pulseEvent.textContent =
+      id + " " + (last.kind || "event") + " · " + relTime(last.created_at);
+    pulseEvent.title = last.created_at || "";
+  }
+
   function render(d) {
     const updated = d.updated || "—";
     stampEl.textContent = updated;
@@ -346,7 +419,12 @@
     setCount("count-aff", aff.length);
     setCount("count-events", events.length);
     setCount("count-files", files.length);
-    setCount("count-canvases", canvases.length);
+
+    updatePulse(board, tasks, jobs, events);
+
+    if (!userPickedView) {
+      applyView(canvases.length === 0 ? "details" : "canvases");
+    }
 
     const boardRows = board
       .map(
@@ -424,7 +502,7 @@
         events.length +
         canvases.length >
       0;
-    emptyHint.classList.toggle("visible", !hasAny);
+    emptyHint.classList.toggle("visible", !hasAny && currentView === "details");
   }
 
   async function tick() {

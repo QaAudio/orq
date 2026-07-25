@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 #[derive(Parser, Debug)]
-#[command(name = "orq", about = "Multi-agent task orchestration CLI", version)]
+#[command(name = "porq", about = "Progressive multi-agent orchestration CLI", version)]
 struct Cli {
     /// Workspace name (lazy-created)
     #[arg(long, short = 'w', global = true, default_value = "default", env = "ORQ_WORKSPACE")]
