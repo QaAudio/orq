@@ -1,131 +1,320 @@
-# orq — multi-agent task orchestration CLI
+# orq
 
-Local-first Rust CLI for coordinating multi-agent workspaces with:
+> **o**rchestrate · **r**oute · **q**ueue
+>
+> A local-first CLI that turns a pile of agents, scripts, and half-finished ideas
+> into a shared workspace with locks, memory, and a pulse.
 
-- **Workspaces** (lazy `default`, optional `--session` ephemeral scope)
-- **Points of interest (POIs)** — lockable, versioned state cells in mixed tables (incl. `paths`)
-- **Tasks** — supervised oneshot/service processes with await/retry/cancel/kill/interrupt and path **claims**
-- **Triggers** — declarative rules with blocking hooks, cascade guards, and budgets
-- **Models / affinities / jobs** — seeded routing (`single|race|moa`) with EMA learning
-- **Visualization** — `--json`, ASCII tables, `report --md|--html`, `watch` TUI, **HTTP dashboard** (`orq dash serve`)
+You have three agents editing the same repo. One is rewriting the API. One is
+fixing tests. One just invented a new folder name. Without coordination you get
+git roulette. **orq** is the shared desk: sticky notes that version, leases that
+expire, tasks that claim files, triggers that react, and a dashboard that proves
+something actually happened.
 
-Inspired by (but independent from) td-rs Loop Meta and prior art: Pueue, Temporal, Restate, Taskwarrior, Hatchet.
+No Kubernetes required. No “platform team.” One binary, one SQLite file by
+default — or the same API pointed at Turso when you want the desk in the cloud.
 
-## Build
+---
+
+## What you get
+
+| Piece | In one line |
+|-------|-------------|
+| **Workspaces** | Named sandboxes (lazy `default`). Optional `--session` for ephemeral chaos. |
+| **POIs** | Versioned cells of state — board cards, paths, approvals, whatever JSON you invent. |
+| **Leases** | Time-boxed locks (`write` / `read-block`). Steal when someone walks away. |
+| **Tasks** | Oneshot or service processes with await, retry, cancel, kill, and **path claims**. |
+| **Triggers** | “When X happens, do Y” with budgets and cascade guards. |
+| **Models & jobs** | Affinity routing + `single` / `race` / `moa` scheduling that learns. |
+| **Dashboard** | Live HTTP UI of the board, tasks, jobs, events — not a `file://` apology. |
+
+Inspired by (and cheerfully independent from) Pueue, Temporal, Restate, Taskwarrior,
+Hatchet, and the Loop Meta vibe from td-rs.
+
+---
+
+## Install
 
 ```bash
+git clone git@github.com:QaAudio/orq.git
+cd orq
 cargo build --release
 # binary: target/release/orq
 ```
 
-Optional data dir: `ORQ_DATA_DIR` (default: platform local data dir `/orq`).
+Optional: set `ORQ_DATA_DIR` (defaults to your platform’s local data dir `/orq`).
 
-## Quick start
+Smoke everything once:
 
 ```bash
-orq status --json --limit 20
+# Windows
+powershell -ExecutionPolicy Bypass -File scripts/smoke.ps1
+# Unix
+./scripts/smoke.sh
+```
+
+---
+
+## Quickstart cards
+
+Pick a lane. Copy-paste. Feel the dopamine.
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### 🃏 Desk in 30 seconds
+
+Stand up a workspace, pin a note, run a task.
+
+```bash
+orq init
 orq poi table create notes --cols body:string:poi
 orq poi set notes hello '"world"' --tier ephemeral
 orq run --sync --name hi -- "echo hello from orq"
-orq report --md
+orq status --json --limit 20
 ```
 
-## Agent adoption
+</td>
+<td width="50%" valign="top">
+
+### 🃏 Watch the pulse
+
+Snapshot + live dashboard on localhost.
+
+```bash
+orq dash snapshot
+orq dash serve --port 9847
+# → http://127.0.0.1:9847/
+```
+
+Refresh every second. Board, tasks, jobs, event
+timeline. Perfect for demos and “is it alive?”.
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### 🃏 Teach Cursor about orq
+
+Drop a skill + AGENTS snippet into a host repo.
 
 ```bash
 orq integrate cursor --path /path/to/host/repo
 ```
 
-Emits `.cursor/skills/orq/SKILL.md` and an `AGENTS.md` snippet.
+Agents then speak POI / claim / trigger instead of
+inventing their own coordination folklore.
+
+</td>
+<td width="50%" valign="top">
+
+### 🃏 Shared cloud desk
+
+Same CLI, Turso/libSQL backend. Opt-in only.
+
+```bash
+cp .env.example .env   # fill ORQ_DB_URL + TOKEN
+orq --remote init
+orq --remote poi set board hello '{"msg":"shared"}'
+orq --remote poi get board hello
+```
+
+Without `--remote` (or exported `ORQ_DB_*`), you
+stay local. A stray `.env` never hijacks you.
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### 🃏 Route models like a pit crew
+
+Affinity scores + Mixture-of-Agents.
+
+```bash
+orq model add fast   --cli "echo FAST:{cmd}"   --capability code
+orq model add strong --cli "echo STRONG:{cmd}" --capability code
+orq affinity set code.edit strong --score 0.9
+orq run --sync --class code.edit --strategy moa \
+  --moa-k 2 --moa-aggregator strong --seed 42 \
+  --name edit -- "propose"
+orq job report <id>
+```
+
+</td>
+<td width="50%" valign="top">
+
+### 🃏 Don’t collide on disk
+
+Claim globs for the lifetime of a task.
+
+```bash
+orq run --sync --name refactor \
+  --claim "src/**" --claim "crates/foo/**" -- \
+  "cargo test -p foo"
+```
+
+Overlapping claims wait or fail closed — your
+call via leases, not vibes.
+
+</td>
+</tr>
+</table>
+
+---
+
+## Possibilities & workflows
+
+orq is deliberately unfinished as a *product* and very useful as a *protocol*.
+Here are shapes people actually run:
+
+### 1. Multi-agent coding desk
+
+Several Cursor / CLI agents share one workspace.
+
+1. Create a `board` POI table for tickets (`todo` → `doing` → `done`).
+2. Each agent **locks** a card (`orq poi lock board T-12 --holder agent-a`).
+3. Tasks **claim** the paths they will touch.
+4. A trigger cancels stale work when a card flips to `blocked`.
+5. Dashboard on a second monitor so humans can interrupt without Slack archaeology.
+
+### 2. Human-in-the-loop gates
+
+POIs as approval tokens.
+
+```text
+agent finishes PR  →  sets poi reviews/pr-42 = {ready:true}
+human flips blocked → false
+trigger unblocks   →  merge / deploy task runs
+```
+
+See recipe ideas in [`recipes/`](recipes/) (`review-gate`, `preland-gate`).
+
+### 3. Serialized “one committer” lane
+
+Only one process may touch git at a time:
+
+- Write lease on `paths/repo`
+- Queue of proposed patches as POIs
+- Central committer task drains the queue, commits, releases
+
+Chaos-free git even when five agents feel inspired.
+
+### 4. Roadmap sync (Linear ↔ local)
+
+A durable POI table mirrors external tickets; a **service** task polls and CAS-writes.
+Agents never talk to Linear directly — they talk to orq. The syncer is the diplomat.
+
+### 5. Verify fan-out before land
+
+`preland-gate`: spawn parallel check tasks; a **blocking** trigger vetoes land if any fail.
+Budgets keep a flaky check from spawning a fork-bomb.
+
+### 6. Model pit lane
+
+Register several model recipes (CLI wrappers, API scripts, whatever). Affinity EMA
+learns which model wins for `code.edit` vs `docs.summarize`. Use `race` when you want
+the first good answer; `moa` when you want propose → critique → merge.
+
+### 7. Local today, shared tomorrow
+
+Prototype entirely offline (SQLite). When the team wants one desk, copy `.env.example`
+→ `.env`, pass `--remote`, keep the same commands. Transactions wrap poi+event,
+leases, jobs — so two laptops don’t half-write a board card.
+
+---
 
 ## Recipes
 
-See [`recipes/`](recipes/) for executable patterns:
+Executable patterns live in [`recipes/`](recipes/):
 
-| Recipe | Purpose |
-|--------|---------|
-| `linear-sync` | Bidirectional roadmap via CAS + poller service task |
-| `central-committer` | Serialized git commits via write lease |
-| `review-gate` | Human approval POI unblocks a task |
+| Recipe | Mood |
+|--------|------|
+| `linear-sync` | Bidirectional roadmap via CAS + poller |
+| `central-committer` | One git pen, many authors |
+| `review-gate` | Human approval unblocks a task |
 | `preland-gate` | Fan-out verify + blocking veto |
-| `queue-drain` | Parallel drain + single-flight apply |
-| `model-routing` | Affinity-based single-model route |
+| `queue-drain` | Parallel drain, single-flight apply |
+| `model-routing` | Affinity picks a model |
 | `moa-merge` | Mixture-of-Agents propose + aggregate |
 
-Run smoke tests: `scripts/smoke.ps1` (or `scripts/smoke.sh`). Smoke also runs the dashboard Playwright gate when Node + Playwright deps are present under `web/`.
+---
 
 ## Live dashboard
 
-First-class UI lives in [`web/dashboard/`](web/dashboard/) and is served over localhost HTTP (not `file://`).
+First-class UI in [`web/dashboard/`](web/dashboard/), served over **HTTP** (not `file://`).
 
 ```bash
-orq dash snapshot                 # atomic JSON → $ORQ_DATA_DIR/dash/data.json
-orq dash serve --port 9847        # serves web/dashboard + /data.json (refreshes every 1s)
-# open http://127.0.0.1:9847/
+orq dash snapshot                 # → $ORQ_DATA_DIR/dash/data.json
+orq dash serve --port 9847        # static UI + /data.json (1s refresh)
 ```
 
-Override static root with `--root` or `ORQ_DASH_ROOT`. The old `%TEMP%/orq-live-*/dashboard.html` demo path is obsolete — do not use it as source of truth.
+Override static root with `--root` or `ORQ_DASH_ROOT`.
 
 ### Dashboard E2E (no LLM)
 
 ```bash
 cargo build -p orq
-cd web
-npm ci
-npx playwright install chromium
+cd web && npm ci && npx playwright install chromium
 npm run test:e2e
 ```
 
-Seed data is CLI-only (`echo` stubs): board POIs, affinities, a routed task, and one MoA job.
+Seed data is CLI-only (`echo` stubs): board POIs, affinities, a routed task, one MoA job.
 
-## Model routing quickstart
-
-```bash
-orq model add fast --cli "echo FAST:{cmd}" --capability code
-orq model add strong --cli "echo STRONG:{cmd}" --capability code
-orq affinity set code.edit strong --score 0.9
-orq run --sync --class code.edit --strategy moa --moa-k 2 --moa-aggregator strong --seed 42 --name edit -- "propose"
-orq job report <id>
-```
+---
 
 ## Storage backends
 
-The store has two backends behind one API (`orq-core/src/db.rs`):
+One store API (`crates/orq-core/src/db.rs`), two backends:
 
-| Mode | Backend | Selected by |
-|---|---|---|
-| Local (default) | SQLite file `<data_dir>/orq.db` via rusqlite (WAL, busy_timeout) | nothing to do |
-| Remote | Turso / any libSQL server over HTTP (hrana) via `libsql` | `ORQ_DB_URL` (+ `ORQ_DB_TOKEN`) |
-
-Remote is **opt-in**: pass `--remote` (loads a `.env` found from the current directory
-up) or export `ORQ_DB_URL` yourself. Without either, everything stays local — a stray
-`.env` never silently redirects local runs to the cloud.
+| Mode | Backend | How you get it |
+|------|---------|----------------|
+| **Local** (default) | SQLite file `<data_dir>/orq.db` | just run `orq` |
+| **Remote** | Turso / any libSQL over HTTP | `orq --remote` + `ORQ_DB_URL` / `ORQ_DB_TOKEN` |
 
 ```bash
-# .env (gitignored) next to the repo or exported in the shell:
-#   ORQ_DB_URL=libsql://<db>.turso.io
-#   ORQ_DB_TOKEN=<token>
+# .env (gitignored) — see .env.example
+ORQ_DB_URL=libsql://YOUR_DB.turso.io
+ORQ_DB_TOKEN=YOUR_TOKEN_HERE
+
 orq --remote init
-orq --remote poi set board hello '{"msg":"shared"}'
-orq --remote workspace drop old-ws --yes   # cloud hygiene (destructive)
+orq --remote workspace drop old-ws --yes   # destructive cloud hygiene
 ```
 
-Notes:
+Notes worth knowing:
 
-- All multi-statement mutations (poi set + event, lease acquire/release, task/job
-  insert, affinity updates, `workspace drop`) run inside a single transaction
-  (`BEGIN IMMEDIATE` locally, `BEGIN` on remote).
-- The live E2E test (`cargo test -p orq-core --test turso_e2e`) reads `tools/orq/.env`
-  and exercises CAS, leases and the event log against the real Turso instance; it
-  self-skips when no credentials are present.
-- Embedded-replica mode (local reads, synced writes) needs the libsql C core
-  (`sync` feature + CMake) and is a planned follow-up.
-- Lease expiry still compares against the client clock; with several writers, keep
-  clocks NTP-synced (server-side time is a follow-up).
+- Multi-statement mutations run in one transaction (`BEGIN IMMEDIATE` locally).
+- Live Turso E2E: `cargo test -p orq-core --test turso_e2e` (skips if no creds).
+- Embedded replica (local reads, synced writes) is a planned follow-up.
+- Lease expiry uses client clocks — keep NTP honest when several writers share remote.
 
-## Design notes
+---
 
-- Daemon-optional: `orq run --sync` needs no daemon; unsupervised `run` auto-spawns `orq daemon run` (TCP localhost + port file).
-- Event log is append-only; every mutation emits an event.
-- Locks are **leases** (TTL + holder); use `poi steal` for recovery.
-- Claims (`--claim "src/**"`) acquire `paths` table write leases for the task lifetime.
+## Mental model (the short version)
+
+```text
+┌──────────── workspace ────────────┐
+│  POIs (versioned cells + leases)  │
+│  Tasks (claims, logs, await)      │
+│  Triggers (react + budgets)       │
+│  Jobs / models (route & learn)    │
+│  Events (append-only pulse)       │
+└───────────────────────────────────┘
+         │
+         ├── local SQLite
+         └── optional Turso / libSQL
+```
+
+- Daemon-optional: `orq run --sync` needs none; unsupervised `run` auto-spawns
+  `orq daemon run` (localhost TCP + port file).
+- Every mutation emits an event. Follow the log like a black box recorder.
+- Locks are **leases** (TTL + holder). Use `poi steal` for recovery theatre.
+- Claims (`--claim "src/**"`) are write leases on the `paths` table for the task lifetime.
+
+---
+
+## License
+
+MIT — see the repo. Contributions welcome; chaos optional but documented.
