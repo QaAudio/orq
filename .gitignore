@@ -1,0 +1,22 @@
+/target/
+**/target/
+**/*.rs.bk
+
+# Secrets / local env (NEVER commit)
+.env
+.env.*
+!.env.example
+
+# Local runtime data
+.ORQ_DATA/
+*.db
+*.db-*
+*.log
+dash/
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db

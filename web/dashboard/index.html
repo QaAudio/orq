@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>orq dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #141210;
+    --bg-wash: #1a1612;
+    --panel: #1c1916;
+    --panel-elev: #24201c;
+    --border: #3a342c;
+    --border-soft: #2a2520;
+    --text: #f2ebe3;
+    --muted: #9a9084;
+    --amber: #e8a838;
+    --amber-dim: #e8a83833;
+    --teal: #3db8a0;
+    --teal-dim: #3db8a033;
+    --blue: #6a9fbf;
+    --blue-dim: #6a9fbf33;
+    --gold: #c4a35a;
+    --gold-dim: #c4a35a33;
+    --green: #6bbf7a;
+    --green-dim: #6bbf7a33;
+    --yellow: #d4a84b;
+    --yellow-dim: #d4a84b33;
+    --red: #e06b5c;
+    --red-dim: #e06b5c33;
+    --font-display: "Syne", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+    --radius: 10px;
+    --gap: 1.15rem;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    background:
+      radial-gradient(1200px 480px at 12% -10%, #2a221833 0%, transparent 55%),
+      radial-gradient(900px 400px at 90% 0%, #1e2a2633 0%, transparent 50%),
+      var(--bg);
+    color: var(--text);
+  }
+
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding: 0.95rem 1.4rem;
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(10px);
+  }
+
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 0.65rem;
+  }
+
+  .brand-mark {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.35rem;
+    letter-spacing: 0.02em;
+    color: var(--amber);
+  }
+
+  .brand-sub {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text);
+    letter-spacing: 0.04em;
+  }
+
+  .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+  }
+
+  #workspace {
+    color: var(--muted);
+    font-size: 0.78rem;
+    padding: 0.2rem 0.55rem;
+    border: 1px solid var(--border-soft);
+    border-radius: 999px;
+    background: var(--panel);
+  }
+
+  #stamp {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--text);
+    font-size: 0.75rem;
+    padding: 0.28rem 0.7rem;
+    border-radius: 999px;
+    border: 1px solid var(--amber-dim);
+    background: var(--amber-dim);
+  }
+
+  #stamp::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--amber);
+    box-shadow: 0 0 0 0 var(--amber);
+    animation: pulse 1.6s ease-out infinite;
+  }
+
+  #stamp.stale::before { animation: none; background: var(--muted); }
+  #stamp.error {
+    border-color: var(--red-dim);
+    background: var(--red-dim);
+    color: var(--red);
+  }
+  #stamp.error::before { background: var(--red); animation: none; }
+
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--amber) 55%, transparent); }
+    70% { box-shadow: 0 0 0 8px transparent; }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
+
+  #error {
+    display: none;
+    background: var(--red-dim);
+    border: 1px solid var(--red);
+    color: var(--red);
+    margin: 1rem 1.25rem 0;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius);
+  }
+  #error.visible { display: block; }
+
+  #empty-hint {
+    display: none;
+    color: var(--muted);
+    margin: 0.75rem 1.25rem 0;
+    font-size: 0.85rem;
+  }
+  #empty-hint.visible { display: block; }
+  #empty-hint code {
+    color: var(--amber);
+    background: var(--panel);
+    padding: 0.05rem 0.35rem;
+    border-radius: 4px;
+  }
+
+  main {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: var(--gap);
+    padding: 1.25rem;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; }
+  }
+
+  section {
+    background: linear-gradient(180deg, var(--panel-elev) 0%, var(--panel) 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.95rem 1.05rem 1.05rem;
+    min-height: 160px;
+    min-width: 0;
+  }
+
+  .section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin: 0 0 0.85rem;
+  }
+
+  h2 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+  }
+
+  .count {
+    font-size: 0.7rem;
+    color: var(--amber);
+    background: var(--amber-dim);
+    border: 1px solid transparent;
+    padding: 0.12rem 0.45rem;
+    border-radius: 999px;
+    min-width: 1.4rem;
+    text-align: center;
+  }
+
+  .panel-body { min-width: 0; }
+
+  .placeholder {
+    color: var(--muted);
+    font-size: 0.82rem;
+    margin: 0.35rem 0;
+  }
+
+  .table-wrap {
+    max-height: 280px;
+    overflow: auto;
+    border-radius: 6px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+  }
+
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--panel-elev);
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid var(--border);
+  }
+
+  th, td {
+    text-align: left;
+    padding: 0.4rem 0.45rem;
+    border-bottom: 1px solid var(--border-soft);
+    vertical-align: top;
+  }
+
+  tbody tr:nth-child(even) { background: color-mix(in srgb, var(--bg) 35%, transparent); }
+  tbody tr:hover { background: color-mix(in srgb, var(--amber) 8%, transparent); }
+
+  td code, .mono {
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    color: var(--muted);
+  }
+
+  .pill {
+    display: inline-block;
+    padding: 0.08rem 0.4rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    line-height: 1.35;
+  }
+
+  .done { background: var(--green-dim); color: var(--green); }
+  .running, .queued, .starting, .reconciling, .planned { background: var(--yellow-dim); color: var(--yellow); }
+  .failed, .cancelled, .killed { background: var(--red-dim); color: var(--red); }
+  .pending, .blocked, .ready, .complete, .aggregated, .proposed, .approved { background: var(--teal-dim); color: var(--teal); }
+
+  .wide { grid-column: 1 / -1; }
+
+  /* Event timeline */
+  .event-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    max-height: 340px;
+    overflow: auto;
+    padding-right: 0.15rem;
+  }
+
+  .event-row {
+    display: grid;
+    grid-template-columns: 3.2rem 1fr auto;
+    gap: 0.55rem 0.75rem;
+    align-items: start;
+    padding: 0.55rem 0.7rem 0.55rem 0.85rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-soft);
+    background: var(--bg);
+    position: relative;
+    transition: background 200ms ease, border-color 200ms ease;
+  }
+
+  .event-row::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 6px;
+    bottom: 6px;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--muted);
+  }
+
+  .event-row.fam-task::before { background: var(--amber); }
+  .event-row.fam-poi::before { background: var(--teal); }
+  .event-row.fam-job::before,
+  .event-row.fam-route::before { background: var(--blue); }
+  .event-row.fam-affinity::before,
+  .event-row.fam-model::before { background: var(--gold); }
+
+  .event-row:hover {
+    background: var(--panel-elev);
+    border-color: var(--border);
+  }
+
+  .event-id {
+    color: var(--muted);
+    font-size: 0.72rem;
+    padding-top: 0.15rem;
+  }
+
+  .event-main { min-width: 0; }
+
+  .event-kind {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 500;
+    padding: 0.08rem 0.4rem;
+    border-radius: 999px;
+    margin-bottom: 0.25rem;
+    background: var(--panel-elev);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .event-row.fam-task .event-kind { background: var(--amber-dim); border-color: transparent; color: var(--amber); }
+  .event-row.fam-poi .event-kind { background: var(--teal-dim); border-color: transparent; color: var(--teal); }
+  .event-row.fam-job .event-kind,
+  .event-row.fam-route .event-kind { background: var(--blue-dim); border-color: transparent; color: var(--blue); }
+  .event-row.fam-affinity .event-kind,
+  .event-row.fam-model .event-kind { background: var(--gold-dim); border-color: transparent; color: var(--gold); }
+
+  .event-payload {
+    color: var(--muted);
+    font-size: 0.76rem;
+    word-break: break-word;
+    line-height: 1.4;
+  }
+
+  .event-time {
+    color: var(--muted);
+    font-size: 0.7rem;
+    white-space: nowrap;
+    padding-top: 0.15rem;
+  }
+
+  .file-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    max-height: 200px;
+    overflow: auto;
+  }
+
+  .file-chip {
+    font-size: 0.72rem;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border-soft);
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .file-chip:hover { border-color: var(--teal); color: var(--teal); }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <span class="brand-mark">orq</span>
+    <span class="brand-sub">dashboard</span>
+  </div>
+  <div class="header-meta">
+    <span id="workspace">workspace —</span>
+    <span id="stamp">connecting…</span>
+  </div>
+</header>
+<div id="error" role="alert"></div>
+<div id="empty-hint">No rows yet — seed data with <code>orq</code> or wait for snapshot refresh.</div>
+<main>
+  <section>
+    <div class="section-head">
+      <h2>Board (POIs)</h2>
+      <span class="count" id="count-board">0</span>
+    </div>
+    <div class="panel-body" id="board"><p class="placeholder">loading…</p></div>
+  </section>
+  <section>
+    <div class="section-head">
+      <h2>Tasks</h2>
+      <span class="count" id="count-tasks">0</span>
+    </div>
+    <div class="panel-body" id="tasks"><p class="placeholder">loading…</p></div>
+  </section>
+  <section>
+    <div class="section-head">
+      <h2>Jobs / routing</h2>
+      <span class="count" id="count-jobs">0</span>
+    </div>
+    <div class="panel-body" id="jobs"><p class="placeholder">loading…</p></div>
+  </section>
+  <section>
+    <div class="section-head">
+      <h2>Affinities</h2>
+      <span class="count" id="count-aff">0</span>
+    </div>
+    <div class="panel-body" id="aff"><p class="placeholder">loading…</p></div>
+  </section>
+  <section class="wide">
+    <div class="section-head">
+      <h2>Recent events</h2>
+      <span class="count" id="count-events">0</span>
+    </div>
+    <div class="panel-body" id="events"><p class="placeholder">loading…</p></div>
+  </section>
+  <section class="wide">
+    <div class="section-head">
+      <h2>Workspace files</h2>
+      <span class="count" id="count-files">0</span>
+    </div>
+    <div class="panel-body" id="files"><p class="placeholder">loading…</p></div>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

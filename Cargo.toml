@@ -1,0 +1,33 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/orq-core",
+    "crates/orq",
+    "crates/orq-tui",
+]
+default-members = ["crates/orq"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["orq contributors"]
+repository = ""
+
+[workspace.dependencies]
+orq-core = { path = "crates/orq-core" }
+orq-tui = { path = "crates/orq-tui" }
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde", "clock"] }
+clap = { version = "4", features = ["derive", "env"] }
+crossterm = "0.28"
+dirs = "5"
+globset = "0.4"
+ratatui = "0.29"
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["full"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+tempfile = "3"

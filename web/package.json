@@ -1,0 +1,13 @@
+{
+  "name": "orq-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test:e2e": "node e2e/seed.mjs && playwright test",
+    "test:e2e:headed": "node e2e/seed.mjs && playwright test --headed"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.51.0"
+  }
+}
