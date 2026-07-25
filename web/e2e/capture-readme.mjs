@@ -3,6 +3,8 @@
  * - docs/img/dashboard.png          (Canvases view)
  * - docs/img/dashboard-details.png  (Details view)
  * - docs/img/dashboard.gif          (toggle between the two)
+ * - docs/img/gallery/theme-*.png    (default / dracula / system)
+ * - docs/img/gallery/scale-*.png    (100% / 125% / 150% CSS zoom)
  *
  * Usage (from web/): node e2e/capture-readme.mjs
  */
@@ -16,6 +18,7 @@ import { chromium } from "@playwright/test";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..", "..");
 const outDir = join(root, "docs", "img");
+const galleryDir = join(outDir, "gallery");
 const outCanvases = join(outDir, "dashboard.png");
 const outDetails = join(outDir, "dashboard-details.png");
 const outGif = join(outDir, "dashboard.gif");
@@ -48,6 +51,34 @@ function runOrq(orq, dataDir, args, { allowFail = false } = {}) {
     throw new Error(`porq failed: ${args.join(" ")}`);
   }
   return r;
+}
+
+async function waitReady(page) {
+  await page.waitForFunction(() => {
+    const stamp = document.querySelector("#stamp")?.textContent ?? "";
+    return stamp && !stamp.includes("connecting") && !stamp.includes("waiting");
+  }, null, { timeout: 15_000 });
+  await page.waitForSelector(".canvas-card", { timeout: 10_000 });
+  await page.waitForSelector("#pulse-event", { timeout: 10_000 });
+  await page.waitForTimeout(500);
+}
+
+async function gotoCanvases(page, baseURL, theme) {
+  await page.addInitScript((t) => {
+    try {
+      localStorage.setItem("porq.dash.view", "canvases");
+      localStorage.setItem("porq.dash.theme", t);
+    } catch {
+      /* ignore */
+    }
+  }, theme);
+  await page.goto(`${baseURL}/?theme=${theme}`);
+  await waitReady(page);
+  await page.waitForFunction(
+    (t) => document.documentElement.getAttribute("data-theme") === t,
+    theme,
+    { timeout: 5_000 }
+  );
 }
 
 // Seed first (board/tasks + basic canvases)
@@ -197,6 +228,8 @@ await new Promise((resolve, reject) => {
 });
 
 mkdirSync(outDir, { recursive: true });
+mkdirSync(galleryDir, { recursive: true });
+mkdirSync(dirname(outDracula), { recursive: true });
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -208,31 +241,47 @@ await page.addInitScript(() => {
   }
 });
 await page.goto(baseURL + "/");
-await page.waitForFunction(() => {
-  const stamp = document.querySelector("#stamp")?.textContent ?? "";
-  return stamp && !stamp.includes("connecting") && !stamp.includes("waiting");
-}, null, { timeout: 15_000 });
-await page.waitForSelector(".canvas-card", { timeout: 10_000 });
-await page.waitForSelector("#pulse-event", { timeout: 10_000 });
-await page.waitForTimeout(700);
+await waitReady(page);
 await page.screenshot({ path: outCanvases, fullPage: false });
 
 await page.locator("#tab-details").click();
 await page.waitForSelector("#view-details.active", { timeout: 5_000 });
 await page.waitForSelector("#board", { timeout: 5_000 });
-await page.waitForTimeout(500);
+await page.waitForTimeout(400);
 await page.screenshot({ path: outDetails, fullPage: false });
 
-// Dracula still for themes docs (hero stays on default)
-await page.locator("#tab-canvases").click();
-await page.waitForSelector("#view-canvases.active", { timeout: 5_000 });
-await page.locator("#theme-select").selectOption("dracula");
-await page.waitForFunction(
-  () => document.documentElement.getAttribute("data-theme") === "dracula"
-);
-await page.waitForTimeout(400);
-mkdirSync(dirname(outDracula), { recursive: true });
-await page.screenshot({ path: outDracula, fullPage: false });
+// Theme gallery + usecases/dracula still
+const themes = ["default", "dracula", "system"];
+for (const theme of themes) {
+  const themePage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await gotoCanvases(themePage, baseURL, theme);
+  const dest = join(galleryDir, `theme-${theme}.png`);
+  await themePage.screenshot({ path: dest, fullPage: false });
+  console.log("wrote", dest);
+  if (theme === "dracula") {
+    await themePage.screenshot({ path: outDracula, fullPage: false });
+  }
+  await themePage.close();
+}
+
+// UI scale gallery (CSS zoom) — same viewport, denser/looser chrome
+const scales = [
+  { label: "100", zoom: 1 },
+  { label: "125", zoom: 1.25 },
+  { label: "150", zoom: 1.5 },
+];
+for (const { label, zoom } of scales) {
+  const scalePage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await gotoCanvases(scalePage, baseURL, "default");
+  await scalePage.evaluate((z) => {
+    document.documentElement.style.zoom = String(z);
+  }, zoom);
+  await scalePage.waitForTimeout(350);
+  const dest = join(galleryDir, `scale-${label}.png`);
+  await scalePage.screenshot({ path: dest, fullPage: false });
+  console.log("wrote", dest);
+  await scalePage.close();
+}
 
 await browser.close();
 proc.kill();
@@ -262,3 +311,4 @@ console.log("wrote", outCanvases);
 console.log("wrote", outDetails);
 console.log("wrote", outGif);
 console.log("wrote", outDracula);
+console.log("gallery ->", galleryDir);

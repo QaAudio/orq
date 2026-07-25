@@ -43,6 +43,10 @@ pub fn build_snapshot(
     let triggers = store.list_triggers(workspace).unwrap_or_default();
     let blocked_pois = store.list_blocked_pois(workspace, row_limit).unwrap_or_default();
     let models = store.list_models(workspace).unwrap_or_default();
+    let computer_focus = store
+        .get_poi(workspace, "computer", "focus")
+        .ok()
+        .flatten();
     // Most recent trigger action failures, independent of the main `events`
     // feed's oldest-first cap (a workspace with >100 lifetime events would
     // otherwise never surface a fresh failure there).
@@ -77,6 +81,7 @@ pub fn build_snapshot(
         "triggers": triggers,
         "blocked_pois": blocked_pois,
         "trigger_failures": trigger_failures,
+        "computer_focus": computer_focus,
         "active_sessions": active_sessions,
         "daemon": {
             "running": daemon_running,

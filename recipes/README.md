@@ -7,6 +7,7 @@ sequences (`porq …`). Prefer `--json` when an agent reads the output.
 |--------|----------------------|
 | [`linear-sync`](linear-sync.md) | External tracker ↔ local POIs via CAS + a poller service |
 | [`central-committer`](central-committer.md) | One write lease owns `git commit`; others queue |
+| [`computer-focus`](computer-focus.md) | Exclusive desktop capture / focus lease (`computer/focus`) |
 | [`review-gate`](review-gate.md) | Human flips a blocked POI → task continues |
 | [`preland-gate`](preland-gate.md) | Parallel verifies; blocking trigger vetoes land |
 | [`queue-drain`](queue-drain.md) | Many workers drain; single-flight apply |

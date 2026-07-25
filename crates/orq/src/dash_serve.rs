@@ -1,14 +1,16 @@
 use anyhow::{bail, Context, Result};
 use orq_core::dash::{default_snapshot_path, write_snapshot};
-use orq_core::Store;
+use orq_core::{LeaseKind, OrqError, StorageTier, Store};
+use serde_json::{json, Value};
+use std::collections::HashMap;
 use std::fs;
 use std::io::{Read, Seek, SeekFrom, Write};
-use std::net::TcpListener;
+use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 /// Hard cap on `tailBytes` regardless of what the client asks for, so a
 /// crafted query can't force the server to buffer an unbounded log file.
@@ -232,21 +234,21 @@ pub fn run_serve(
         let Ok(mut stream) = stream else {
             continue;
         };
-        let mut buf = [0u8; 4096];
-        let n = match stream.read(&mut buf) {
-            Ok(n) => n,
-            Err(_) => continue,
+        let Ok(req) = read_http_request(&mut stream) else {
+            continue;
         };
-        let req = String::from_utf8_lossy(&buf[..n]);
-        let raw_path = req
-            .lines()
-            .next()
-            .and_then(|line| line.split_whitespace().nth(1))
-            .unwrap_or("/")
-            .to_string();
-        let path = raw_path.split('?').next().unwrap_or("/");
+        let path = req.path.split('?').next().unwrap_or("/");
 
-        let (status, ctype, body) = if path == "/" || path == "/index.html" {
+        let (status, ctype, body) = if req.method == "POST" {
+            handle_post_api(
+                &store,
+                &workspace,
+                session.as_deref(),
+                &snap_path,
+                path,
+                &req.body,
+            )
+        } else if path == "/" || path == "/index.html" {
             index_html_response(&root, &theme_opts)
         } else if path == "/app.js" {
             file_response(
@@ -260,7 +262,7 @@ pub fn run_serve(
         } else if let Some(name) = path.strip_prefix("/canvas/") {
             canvas_response(&canvas_dir, name)
         } else if let Some(task_id) = parse_task_logs_path(path) {
-            task_logs_response(&store, task_id, &raw_path)
+            task_logs_response(&store, task_id, &req.raw_path)
         } else {
             (
                 "404 Not Found",
@@ -270,7 +272,7 @@ pub fn run_serve(
         };
 
         let header = format!(
-            "HTTP/1.1 {status}\r\nContent-Type: {ctype}\r\nContent-Length: {}\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n",
+            "HTTP/1.1 {status}\r\nContent-Type: {ctype}\r\nContent-Length: {}\r\nCache-Control: no-store\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n",
             body.len()
         );
         let _ = stream.write_all(header.as_bytes());
@@ -279,6 +281,326 @@ pub fn run_serve(
 
     stop.store(true, Ordering::Relaxed);
     Ok(())
+}
+
+struct HttpRequest {
+    method: String,
+    path: String,
+    raw_path: String,
+    body: Vec<u8>,
+}
+
+fn read_http_request(stream: &mut TcpStream) -> std::io::Result<HttpRequest> {
+    let mut buf = Vec::with_capacity(8192);
+    let mut chunk = [0u8; 4096];
+    loop {
+        let n = stream.read(&mut chunk)?;
+        if n == 0 {
+            break;
+        }
+        buf.extend_from_slice(&chunk[..n]);
+        if buf.windows(4).any(|w| w == b"\r\n\r\n") {
+            break;
+        }
+        if buf.len() > 64 * 1024 {
+            break;
+        }
+    }
+    let header_end = buf
+        .windows(4)
+        .position(|w| w == b"\r\n\r\n")
+        .map(|i| i + 4)
+        .unwrap_or(buf.len());
+    let header = String::from_utf8_lossy(&buf[..header_end.min(buf.len())]);
+    let mut lines = header.lines();
+    let request_line = lines.next().unwrap_or("GET / HTTP/1.1");
+    let mut parts = request_line.split_whitespace();
+    let method = parts.next().unwrap_or("GET").to_string();
+    let raw_path = parts.next().unwrap_or("/").to_string();
+    let path = raw_path.clone();
+
+    let mut content_length = 0usize;
+    for line in lines {
+        let lower = line.to_ascii_lowercase();
+        if let Some(v) = lower.strip_prefix("content-length:") {
+            content_length = v.trim().parse().unwrap_or(0);
+        }
+    }
+    content_length = content_length.min(64 * 1024);
+
+    let mut body = buf[header_end.min(buf.len())..].to_vec();
+    while body.len() < content_length {
+        let n = stream.read(&mut chunk)?;
+        if n == 0 {
+            break;
+        }
+        body.extend_from_slice(&chunk[..n]);
+    }
+    if body.len() > content_length {
+        body.truncate(content_length);
+    }
+
+    Ok(HttpRequest {
+        method,
+        path,
+        raw_path,
+        body,
+    })
+}
+
+/// Scoped dash mutate: only `computer` / `focus` (desktop capture lock).
+fn handle_post_api(
+    store: &Store,
+    workspace: &str,
+    session: Option<&str>,
+    snap_path: &Path,
+    path: &str,
+    body: &[u8],
+) -> (&'static str, &'static str, Vec<u8>) {
+    let json_err = |status: &'static str, msg: &str| {
+        (
+            status,
+            "application/json; charset=utf-8",
+            json!({ "ok": false, "error": msg }).to_string().into_bytes(),
+        )
+    };
+    let Ok(payload) = serde_json::from_slice::<Value>(if body.is_empty() { b"{}" } else { body })
+    else {
+        return json_err("400 Bad Request", "invalid json body");
+    };
+
+    let table = payload
+        .get("table")
+        .and_then(|v| v.as_str())
+        .unwrap_or("computer");
+    let key = payload
+        .get("key")
+        .and_then(|v| v.as_str())
+        .unwrap_or("focus");
+    if table != "computer" || key != "focus" {
+        return json_err(
+            "403 Forbidden",
+            "dash mutate is scoped to computer/focus only",
+        );
+    }
+
+    let holder = payload
+        .get("holder")
+        .and_then(|v| v.as_str())
+        .unwrap_or("user")
+        .to_string();
+    let reason = payload
+        .get("reason")
+        .and_then(|v| v.as_str())
+        .unwrap_or("dash")
+        .to_string();
+    let ttl = payload.get("ttl").and_then(|v| v.as_i64()).unwrap_or(300);
+    let wait = payload
+        .get("wait")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let timeout_ms = payload
+        .get("timeout_ms")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(120_000);
+
+    let result = match path {
+        "/api/v1/poi/lock" => dash_lock(store, workspace, &holder, &reason, ttl, wait, timeout_ms),
+        "/api/v1/poi/unlock" => dash_unlock(store, workspace, &holder),
+        "/api/v1/poi/steal" => dash_steal(store, workspace, &holder, &reason, ttl),
+        "/api/v1/poi/yield-request" => {
+            let yield_by = payload
+                .get("yield_by")
+                .and_then(|v| v.as_str())
+                .unwrap_or("user");
+            dash_yield_request(store, workspace, yield_by)
+        }
+        _ => {
+            return json_err("404 Not Found", "unknown mutate endpoint");
+        }
+    };
+
+    match result {
+        Ok(value) => {
+            let _ = write_snapshot(store, workspace, session, snap_path);
+            (
+                "200 OK",
+                "application/json; charset=utf-8",
+                json!({ "ok": true, "data": value }).to_string().into_bytes(),
+            )
+        }
+        Err(e) => json_err("409 Conflict", &e),
+    }
+}
+
+fn dash_lock(
+    store: &Store,
+    workspace: &str,
+    holder: &str,
+    reason: &str,
+    ttl: i64,
+    wait: bool,
+    timeout_ms: u64,
+) -> std::result::Result<Value, String> {
+    const POLL_MS: u64 = 200;
+    let deadline = Instant::now() + Duration::from_millis(timeout_ms);
+    loop {
+        match store.acquire_lease(
+            workspace,
+            "computer",
+            "focus",
+            LeaseKind::Write,
+            holder,
+            reason,
+            ttl,
+        ) {
+            Ok(lease) => {
+                let body = json!({
+                    "v": 1,
+                    "purpose": reason,
+                    "holder_kind": if holder == "user" { "human" } else { "agent" },
+                    "session": holder,
+                    "yield_requested": false,
+                    "yield_by": null,
+                    "note": "dash"
+                });
+                let _ = store.set_poi(
+                    workspace,
+                    "computer",
+                    "focus",
+                    body,
+                    HashMap::new(),
+                    Some("held"),
+                    StorageTier::Durable,
+                    None,
+                    None,
+                    Some(holder),
+                );
+                return Ok(json!(lease));
+            }
+            Err(OrqError::LockHeld { holder: h, reason: r }) if wait => {
+                if Instant::now() >= deadline {
+                    return Err(format!(
+                        "lock wait timed out after {timeout_ms}ms (held by {h}: {r})"
+                    ));
+                }
+                thread::sleep(Duration::from_millis(POLL_MS));
+            }
+            Err(e) => return Err(e.to_string()),
+        }
+    }
+}
+
+fn dash_unlock(store: &Store, workspace: &str, holder: &str) -> std::result::Result<Value, String> {
+    store
+        .release_lease(workspace, "computer", "focus", holder)
+        .map_err(|e| e.to_string())?;
+    let idle = json!({
+        "v": 1,
+        "purpose": "",
+        "holder_kind": "",
+        "session": "",
+        "yield_requested": false,
+        "yield_by": null,
+        "note": ""
+    });
+    let _ = store.set_poi(
+        workspace,
+        "computer",
+        "focus",
+        idle,
+        HashMap::new(),
+        Some("idle"),
+        StorageTier::Durable,
+        None,
+        None,
+        None,
+    );
+    Ok(json!({ "unlocked": true, "holder": holder }))
+}
+
+fn dash_steal(
+    store: &Store,
+    workspace: &str,
+    holder: &str,
+    reason: &str,
+    ttl: i64,
+) -> std::result::Result<Value, String> {
+    let lease = store
+        .steal_lease(workspace, "computer", "focus", holder, reason, ttl)
+        .map_err(|e| e.to_string())?;
+    let body = json!({
+        "v": 1,
+        "purpose": reason,
+        "holder_kind": if holder == "user" { "human" } else { "agent" },
+        "session": holder,
+        "yield_requested": false,
+        "yield_by": null,
+        "note": "stolen"
+    });
+    let _ = store.set_poi(
+        workspace,
+        "computer",
+        "focus",
+        body,
+        HashMap::new(),
+        Some("held"),
+        StorageTier::Durable,
+        None,
+        None,
+        Some(holder),
+    );
+    Ok(json!(lease))
+}
+
+fn dash_yield_request(
+    store: &Store,
+    workspace: &str,
+    yield_by: &str,
+) -> std::result::Result<Value, String> {
+    let poi = store
+        .get_poi(workspace, "computer", "focus")
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "computer/focus missing".to_string())?;
+    let mut value = poi.value;
+    if !value.is_object() {
+        value = json!({
+            "v": 1,
+            "purpose": "",
+            "holder_kind": "",
+            "session": "",
+            "yield_requested": true,
+            "yield_by": yield_by,
+            "note": ""
+        });
+    } else if let Some(obj) = value.as_object_mut() {
+        obj.insert("yield_requested".into(), json!(true));
+        obj.insert("yield_by".into(), json!(yield_by));
+    }
+    // Yield metadata must update even while another holder owns the Write lease.
+    // Steal briefly is too aggressive; set_poi with holder_check None fails.
+    // Use steal-free path: if LockHeld, patch via temporary steal? Better: call set_poi
+    // with the active lease holder's identity when known.
+    let holder_check = store
+        .active_lease(workspace, "computer", "focus")
+        .ok()
+        .flatten()
+        .map(|l| l.holder);
+    let updated = store
+        .set_poi(
+            workspace,
+            "computer",
+            "focus",
+            value,
+            HashMap::new(),
+            Some("held"),
+            StorageTier::Durable,
+            None,
+            None,
+            holder_check.as_deref(),
+        )
+        .map_err(|e| e.to_string())?;
+    Ok(json!(updated))
 }
 
 fn file_response(path: &Path, ctype: &'static str) -> (&'static str, &'static str, Vec<u8>) {

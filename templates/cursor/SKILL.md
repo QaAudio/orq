@@ -36,6 +36,8 @@ porq dash serve --port 9847
 # optional theme: --theme dracula | --theme-file ./my.css  (env ORQ_DASH_THEME*)
 ```
 
+Dash mutate is **scoped**: localhost POST `/api/v1/poi/{lock,unlock,steal,yield-request}`
+only for `computer/focus` (Claim / Wait / Release / Steal UI). Roadmap/git stay CLI-only.
 ## Loop / Meta routing
 When a host repo defines Loop Meta / roadmap / doctor flows, follow **that** host's cards and skills for vetoes and program order. Porq is the substrate (POIs, tasks, canvases, triggers) — do not invent host-specific gates from this skill alone.
 
@@ -51,11 +53,25 @@ porq --session "$ORQ_SESSION" gc
 
 ## Core primitives
 - **Workspace** — sandbox (`--workspace`, default `default`)
-- **POI** — lockable record in a table (`poi get/set/lock/steal`)
+- **POI** — lockable record in a table (`poi get/set/lock/steal`; `lock --wait --timeout-ms` polls)
 - **Canvas** — display POI in reserved `canvas` table (`canvas set/ls/rm`; kinds: markdown/image/url/html)
 - **Task** — supervised agent/process (`run/await/cancel/kill`)
 - **Trigger** — declarative rules (`trigger add` …)
 - **Model / Affinity / Job** — eval → seeded route → single|race|moa
+
+## Computer focus (desktop capture)
+OS chrome / WinAPI screenshot sessions (`td_ui`, product UI capture) must hold:
+
+```bash
+porq -w tdrs-loop poi lock computer focus --holder <id> --ttl 300 --wait --timeout-ms 120000
+porq -w tdrs-loop canvas set computer-focus --md ./status.md
+# … capture …
+porq -w tdrs-loop poi unlock computer focus --holder <id>
+```
+
+Cheap status: `porq -w tdrs-loop poi get computer focus --json` and canvas `computer-focus`.
+Honor `yield_requested` in the POI value. Recipe: `recipes/computer-focus.md`.
+Host scrape rails: **scraping** skill.
 
 ## Model routing + MoA
 ```bash
@@ -73,6 +89,6 @@ porq run --claim "src/engine/**" --name edit -- "…"
 ```
 
 ## Recipes
-See `recipes/`: linear-sync, central-committer, review-gate, preland-gate, queue-drain, model-routing, moa-merge, review-agent, roadmap-sanity.
+See `recipes/`: linear-sync, central-committer, computer-focus, review-gate, preland-gate, queue-drain, model-routing, moa-merge, review-agent, roadmap-sanity.
 
 Env vars still use the `ORQ_*` prefix (compat); binary is `porq`.

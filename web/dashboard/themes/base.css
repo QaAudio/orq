@@ -962,3 +962,50 @@
   border-color: var(--accent);
   color: var(--accent);
 }
+
+/* Computer focus ownership panel (Canvases view) */
+.computer-focus-panel {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.computer-focus-panel .section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+.computer-focus-panel h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+.cf-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.cf-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.cf-btn {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+.cf-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.cf-btn:disabled { opacity: 0.55; cursor: default; }
+.cf-btn.cf-danger:hover:not(:disabled) { border-color: var(--danger, #c44); color: var(--danger, #c44); }
+.cf-status { font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); }
+.cf-status.cf-error { color: var(--danger, #c44); }

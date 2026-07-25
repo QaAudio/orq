@@ -33,6 +33,32 @@ try {
     Write-Host "CAS conflict ok"
 }
 
+Write-Host "== poi lock / wait =="
+Invoke-Orq poi table create computer --cols purpose:string:poi --json | Out-Null
+Invoke-Orq poi set computer focus '{"v":1,"purpose":"","holder_kind":"","session":"","yield_requested":false,"yield_by":null,"note":""}' --state idle --json | Out-Null
+Invoke-Orq poi lock computer focus --holder holder-a --reason smoke-a --ttl 60 --json | Out-Null
+& $Orq poi lock computer focus --holder holder-b --reason smoke-b --ttl 60 --json 2>$null | Out-Null
+if ($LASTEXITCODE -eq 0) { throw "lock without --wait should fail when held" }
+Write-Host "LockHeld without --wait ok"
+$waitLog = Join-Path $Data "lock-wait.log"
+$waitProc = Start-Process -FilePath $Orq `
+    -ArgumentList @("poi","lock","computer","focus","--holder","holder-b","--reason","smoke-wait","--ttl","60","--wait","--timeout-ms","15000","--json") `
+    -NoNewWindow -PassThru -RedirectStandardOutput $waitLog -RedirectStandardError (Join-Path $Data "lock-wait.err")
+Start-Sleep -Milliseconds 400
+Invoke-Orq poi unlock computer focus --holder holder-a --json | Out-Null
+$exited = $waitProc.WaitForExit(20000)
+if (-not $exited -or -not $waitProc.HasExited) {
+    Stop-Process -Id $waitProc.Id -Force -ErrorAction SilentlyContinue
+    throw "lock --wait did not complete in time"
+}
+$waitExit = $waitProc.ExitCode
+if ($null -eq $waitExit) { $waitExit = 0 }
+if ($waitExit -ne 0) {
+    throw "lock --wait failed exit=$waitExit log=$(Get-Content $waitLog -Raw -ErrorAction SilentlyContinue)"
+}
+Invoke-Orq poi unlock computer focus --holder holder-b --json | Out-Null
+Write-Host "lock --wait ok"
+
 Write-Host "== sync task =="
 & $Orq run --sync --name hi --json -- echo smoke-ok | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "sync task failed" }
@@ -75,6 +101,7 @@ Write-Host "== recipes presence =="
 @(
     "linear-sync.md",
     "central-committer.md",
+    "computer-focus.md",
     "review-gate.md",
     "preland-gate.md",
     "queue-drain.md",

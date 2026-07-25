@@ -210,6 +210,44 @@ run([
   "--json",
 ]);
 
+run([
+  "poi",
+  "table",
+  "create",
+  "computer",
+  "--cols",
+  "purpose:string:poi",
+  "--cols",
+  "holder_kind:string",
+  "--cols",
+  "session:string",
+  "--cols",
+  "yield_requested:bool",
+  "--cols",
+  "yield_by:string",
+  "--cols",
+  "note:string",
+  "--json",
+]);
+run([
+  "poi",
+  "set",
+  "computer",
+  "focus",
+  JSON.stringify({
+    v: 1,
+    purpose: "",
+    holder_kind: "",
+    session: "",
+    yield_requested: false,
+    yield_by: null,
+    note: "",
+  }),
+  "--state",
+  "idle",
+  "--json",
+]);
+
 run(["dash", "snapshot", "--json"]);
 
 const statePath = join(__dirname, ".seed-state.json");

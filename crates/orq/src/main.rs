@@ -8,6 +8,8 @@ use serde_json::json;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::thread;
+use std::time::{Duration, Instant};
 
 #[derive(Parser, Debug)]
 #[command(name = "porq", about = "Progressive multi-agent orchestration CLI", version)]
@@ -307,6 +309,12 @@ enum PoiCmd {
         reason: String,
         #[arg(long, default_value_t = 300)]
         ttl: i64,
+        /// Poll until the lease is free (or timeout) instead of failing on LockHeld
+        #[arg(long, default_value_t = false)]
+        wait: bool,
+        /// Max wait when `--wait` is set (milliseconds)
+        #[arg(long, default_value_t = 120_000)]
+        timeout_ms: u64,
     },
     Unlock {
         table: String,
@@ -1097,6 +1105,36 @@ fn handle_canvas(
     Ok(())
 }
 
+fn acquire_lease_maybe_wait(
+    store: &Store,
+    workspace: &str,
+    table: &str,
+    key: &str,
+    kind: LeaseKind,
+    holder: &str,
+    reason: &str,
+    ttl: i64,
+    wait: bool,
+    timeout_ms: u64,
+) -> anyhow::Result<Lease> {
+    const POLL_MS: u64 = 200;
+    let deadline = Instant::now() + Duration::from_millis(timeout_ms);
+    loop {
+        match store.acquire_lease(workspace, table, key, kind, holder, reason, ttl) {
+            Ok(lease) => return Ok(lease),
+            Err(OrqError::LockHeld { holder: h, reason: r }) if wait => {
+                if Instant::now() >= deadline {
+                    bail!(
+                        "lock wait timed out after {timeout_ms}ms on {table}/{key} (held by {h}: {r})"
+                    );
+                }
+                thread::sleep(Duration::from_millis(POLL_MS));
+            }
+            Err(e) => return Err(e.into()),
+        }
+    }
+}
+
 fn handle_poi(
     opts: &OutOpts,
     workspace: &str,
@@ -1210,13 +1248,25 @@ fn handle_poi(
             holder,
             reason,
             ttl,
+            wait,
+            timeout_ms,
         } => {
             let kind = match kind {
                 LockArg::Write => LeaseKind::Write,
                 LockArg::ReadBlock => LeaseKind::ReadBlock,
             };
-            let lease =
-                store.acquire_lease(workspace, &table, &key, kind, &holder, &reason, ttl)?;
+            let lease = acquire_lease_maybe_wait(
+                store,
+                workspace,
+                &table,
+                &key,
+                kind,
+                &holder,
+                &reason,
+                ttl,
+                wait,
+                timeout_ms,
+            )?;
             out(opts, &lease)?;
         }
         PoiCmd::Unlock {

@@ -10,6 +10,15 @@ export ORQ_WORKSPACE=default
 "$ORQ" init --json >/dev/null
 "$ORQ" poi table create health --cols status:string:poi --json >/dev/null
 "$ORQ" poi set health system '"ok"' --state ok --json >/dev/null
+"$ORQ" poi table create computer --cols purpose:string:poi --json >/dev/null
+"$ORQ" poi lock computer focus --holder holder-a --reason smoke-a --ttl 60 --json >/dev/null
+if "$ORQ" poi lock computer focus --holder holder-b --reason smoke-b --ttl 60 --json >/dev/null 2>&1; then
+  echo "lock without --wait should fail when held" >&2
+  exit 1
+fi
+"$ORQ" poi unlock computer focus --holder holder-a --json >/dev/null
+"$ORQ" poi lock computer focus --holder holder-b --reason smoke-wait --ttl 60 --wait --timeout-ms 5000 --json >/dev/null
+"$ORQ" poi unlock computer focus --holder holder-b --json >/dev/null
 "$ORQ" run --sync --name hi --json -- "echo smoke-ok" >/dev/null
 "$ORQ" report --md >/dev/null
 "$ORQ" integrate cursor --path "$DATA/host" --json >/dev/null

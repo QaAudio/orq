@@ -11,4 +11,5 @@ Captured from the live `tdrs-loop` dashboard after the compact/professional poli
 Regen default consumer stills: serve `porq -w tdrs-loop dash serve --port 9847`, refresh mirrors via
 `porq_loop_doctor.ps1` / `sync_roadmap_to_porq.py`, then capture at ~1440×900.
 
-Regen dracula still: `cd web && npm run capture:readme`.
+Regen theme / UI-scale gallery + dracula still: `cd web && npm run capture:readme`
+(see [`../gallery/`](../gallery/)).

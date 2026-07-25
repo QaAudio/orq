@@ -919,6 +919,161 @@
     }
   }
 
+  let cfBusy = false;
+
+  function findComputerFocus(d) {
+    const leases = asArray(d.leases);
+    const lease = leases.find((l) => l.table === "computer" && l.key === "focus") || null;
+    const poi = d.computer_focus || null;
+    return { lease, poi };
+  }
+
+  function renderComputerFocus(d) {
+    const body = document.getElementById("computer-focus-body");
+    const stateEl = document.getElementById("cf-state");
+    if (!body) return;
+    const { lease, poi } = findComputerFocus(d);
+    const val = poi && poi.value && typeof poi.value === "object" ? poi.value : {};
+    const held = !!lease;
+    const yieldReq = !!(val && val.yield_requested);
+    if (stateEl) stateEl.textContent = held ? "held" : poi ? poi.state || "idle" : "—";
+    const holder = lease ? lease.holder : val.session || "—";
+    const purpose = (lease && lease.reason) || val.purpose || "—";
+    const expires = lease ? relTime(lease.expires_at) : "—";
+    body.innerHTML =
+      `<div class="cf-grid">` +
+      `<div><span class="ops-label">holder</span><div class="mono">${esc(holder)}</div></div>` +
+      `<div><span class="ops-label">purpose</span><div>${esc(purpose)}</div></div>` +
+      `<div><span class="ops-label">expires</span><div>${esc(expires)}</div></div>` +
+      `<div><span class="ops-label">yield</span><div>${yieldReq ? pill("requested") : pill("clear")}</div></div>` +
+      `</div>` +
+      `<div class="cf-actions">` +
+      `<button type="button" class="cf-btn" id="cf-claim" ${cfBusy ? "disabled" : ""}>Take ownership (wait)</button>` +
+      `<button type="button" class="cf-btn" id="cf-yield" ${cfBusy || !held ? "disabled" : ""}>Request yield</button>` +
+      `<button type="button" class="cf-btn" id="cf-release" ${cfBusy ? "disabled" : ""}>Release</button>` +
+      `<button type="button" class="cf-btn cf-danger" id="cf-steal" ${cfBusy ? "disabled" : ""}>Steal</button>` +
+      `<span class="cf-status" id="cf-status" aria-live="polite"></span>` +
+      `</div>`;
+    wireComputerFocusButtons();
+  }
+
+  function setCfStatus(msg, isError) {
+    const el = document.getElementById("cf-status");
+    if (!el) return;
+    el.textContent = msg || "";
+    el.classList.toggle("cf-error", !!isError);
+  }
+
+  async function postPoiApi(path, body) {
+    const res = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body || {}),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.ok === false) {
+      throw new Error((data && data.error) || res.statusText || "request failed");
+    }
+    return data;
+  }
+
+  function wireComputerFocusButtons() {
+    const claim = document.getElementById("cf-claim");
+    const yieldBtn = document.getElementById("cf-yield");
+    const release = document.getElementById("cf-release");
+    const steal = document.getElementById("cf-steal");
+    if (claim) {
+      claim.onclick = async () => {
+        cfBusy = true;
+        setCfStatus("waiting for lease…");
+        wireComputerFocusButtons();
+        try {
+          await postPoiApi("/api/v1/poi/lock", {
+            table: "computer",
+            key: "focus",
+            holder: "user",
+            reason: "dash claim",
+            ttl: 600,
+            wait: true,
+            timeout_ms: 120000,
+          });
+          setCfStatus("acquired");
+          await tick(true);
+        } catch (e) {
+          setCfStatus(String(e.message || e), true);
+        } finally {
+          cfBusy = false;
+          if (lastSnapshot) renderComputerFocus(lastSnapshot);
+        }
+      };
+    }
+    if (yieldBtn) {
+      yieldBtn.onclick = async () => {
+        cfBusy = true;
+        setCfStatus("requesting yield…");
+        try {
+          await postPoiApi("/api/v1/poi/yield-request", {
+            table: "computer",
+            key: "focus",
+            yield_by: "user",
+          });
+          setCfStatus("yield requested");
+          await tick(true);
+        } catch (e) {
+          setCfStatus(String(e.message || e), true);
+        } finally {
+          cfBusy = false;
+          if (lastSnapshot) renderComputerFocus(lastSnapshot);
+        }
+      };
+    }
+    if (release) {
+      release.onclick = async () => {
+        cfBusy = true;
+        setCfStatus("releasing…");
+        try {
+          await postPoiApi("/api/v1/poi/unlock", {
+            table: "computer",
+            key: "focus",
+            holder: "user",
+          });
+          setCfStatus("released");
+          await tick(true);
+        } catch (e) {
+          setCfStatus(String(e.message || e), true);
+        } finally {
+          cfBusy = false;
+          if (lastSnapshot) renderComputerFocus(lastSnapshot);
+        }
+      };
+    }
+    if (steal) {
+      steal.onclick = async () => {
+        if (!window.confirm("Steal computer/focus lease? Prefer Request yield when an agent holds it.")) {
+          return;
+        }
+        cfBusy = true;
+        setCfStatus("stealing…");
+        try {
+          await postPoiApi("/api/v1/poi/steal", {
+            table: "computer",
+            key: "focus",
+            holder: "user",
+            reason: "dash steal",
+            ttl: 600,
+          });
+          setCfStatus("stolen");
+          await tick(true);
+        } catch (e) {
+          setCfStatus(String(e.message || e), true);
+        } finally {
+          cfBusy = false;
+          if (lastSnapshot) renderComputerFocus(lastSnapshot);
+        }
+      };
+    }
+  }
+
   function render(d) {
     const board = asArray(d.board);
     const tasks = asArray(d.tasks);
@@ -1016,6 +1171,7 @@
 
     const opsEl = document.getElementById("ops-health");
     if (opsEl) opsEl.innerHTML = renderOpsHealth(d);
+    renderComputerFocus(d);
 
     document.getElementById("canvases").innerHTML = renderCanvases(canvases);
     document.getElementById("events").innerHTML = renderEvents(events);

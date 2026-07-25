@@ -131,9 +131,11 @@ Every `set` bumps a version; `--if-version` is compare-and-swap.
 
 ```bash
 porq poi lock notes hello --holder agent-a --ttl 300
+porq poi lock notes hello --holder agent-b --wait --timeout-ms 120000
 porq run --sync --name refactor --claim "src/**" -- "cargo test -p foo"
 ```
 
+`--wait` polls until the lease is free (or `--timeout-ms` elapses). Without it, `LockHeld` fails immediately.
 Overlapping claims wait or fail closed. Use `poi steal` for recovery.
 
 </details>
@@ -278,6 +280,7 @@ Executable patterns in [`recipes/`](recipes/):
 |--------|---------|
 | `linear-sync` | Bidirectional roadmap via CAS + poller |
 | `central-committer` | Serialized git writes |
+| `computer-focus` | Exclusive desktop capture / focus lease |
 | `review-gate` | Human approval unblocks a task |
 | `preland-gate` | Fan-out verify + blocking veto |
 | `queue-drain` | Parallel drain, single-flight apply |
@@ -297,6 +300,10 @@ porq dash serve --port 9847        # static UI + /data.json (1s refresh)
 
 Override static root with `--root` or `ORQ_DASH_ROOT`.
 
+Scoped mutate (localhost only): `POST /api/v1/poi/{lock,unlock,steal,yield-request}`
+for **`computer/focus`** — powers the Canvases **Computer focus** Claim/Wait/Release UI.
+Roadmap / git / other POIs stay CLI-only.
+
 ### Themes (opt-in)
 
 Zero flags keeps the current warm-dark **default**. Optional packs: `dracula`, `system` (light + `prefers-color-scheme`).
@@ -308,14 +315,56 @@ Zero flags keeps the current warm-dark **default**. Optional packs: `dracula`, `
 
 Variable catalog + how to add a pack: [`web/dashboard/themes/README.md`](web/dashboard/themes/README.md). Canvas authoring: [`docs/canvas-authoring.md`](docs/canvas-authoring.md).
 
+#### Theme gallery
+
+<table>
+  <tr>
+    <td align="center" width="33%">
+      <a href="docs/img/gallery/theme-default.png"><img src="docs/img/gallery/theme-default.png" alt="default theme" width="280" /></a><br />
+      <sub><b>default</b> — warm dark</sub>
+    </td>
+    <td align="center" width="33%">
+      <a href="docs/img/gallery/theme-dracula.png"><img src="docs/img/gallery/theme-dracula.png" alt="dracula theme" width="280" /></a><br />
+      <sub><b>dracula</b></sub>
+    </td>
+    <td align="center" width="33%">
+      <a href="docs/img/gallery/theme-system.png"><img src="docs/img/gallery/theme-system.png" alt="system theme" width="280" /></a><br />
+      <sub><b>system</b> — light / OS</sub>
+    </td>
+  </tr>
+</table>
+
+#### UI scale gallery
+
+Same Canvases board at browser zoom **100% / 125% / 150%** (useful when checking density on HiDPI desks).
+
+<table>
+  <tr>
+    <td align="center" width="33%">
+      <a href="docs/img/gallery/scale-100.png"><img src="docs/img/gallery/scale-100.png" alt="100% UI scale" width="280" /></a><br />
+      <sub><b>100%</b></sub>
+    </td>
+    <td align="center" width="33%">
+      <a href="docs/img/gallery/scale-125.png"><img src="docs/img/gallery/scale-125.png" alt="125% UI scale" width="280" /></a><br />
+      <sub><b>125%</b></sub>
+    </td>
+    <td align="center" width="33%">
+      <a href="docs/img/gallery/scale-150.png"><img src="docs/img/gallery/scale-150.png" alt="150% UI scale" width="280" /></a><br />
+      <sub><b>150%</b></sub>
+    </td>
+  </tr>
+</table>
+
+Full-size stills live under [`docs/img/gallery/`](docs/img/gallery/). Regen with `cd web && npm run capture:readme`.
+
 ### Two views
 
-- **Canvases** (primary, default) — agent-published markdown / image / url / html cards.
+- **Canvases** (primary, default) — agent-published markdown / image / url / html cards, plus the **Computer focus** ownership panel.
 - **Details** — board, tasks, jobs, affinities, events, files. Opens automatically when there are no canvases.
 - **Pulse strip** — counts + latest event; click to open Details.
 
 Tab choice persists in `localStorage`. Regenerate README images with
-`cd web && npm run capture:readme` (writes `dashboard.png`, `dashboard-details.png`, `dashboard.gif`, and a small `usecases/porq-demo-dracula.png`).
+`cd web && npm run capture:readme` (hero PNGs/GIF, theme+scale gallery, and `usecases/porq-demo-dracula.png`).
 
 ### Canvases (display protocol v1)
 

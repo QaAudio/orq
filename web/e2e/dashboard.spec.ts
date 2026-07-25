@@ -156,4 +156,23 @@ test.describe("porq dashboard", () => {
     await expect(page.locator("html")).toHaveAttribute("data-theme", "system");
     await expect(pack).toHaveAttribute("href", "/themes/system.css");
   });
+
+  test("computer focus claim wait release", async ({ page }) => {
+    await page.goto(baseURL + "/");
+    await expect(page.locator("#stamp")).not.toHaveText("connecting…", {
+      timeout: 10_000,
+    });
+    await expect(page.locator("#computer-focus-panel")).toBeVisible();
+    await expect(page.locator("#cf-claim")).toBeVisible();
+
+    await page.locator("#cf-claim").click();
+    await expect
+      .poll(async () => page.locator("#cf-state").innerText(), { timeout: 15_000 })
+      .toBe("held");
+
+    await page.locator("#cf-release").click();
+    await expect
+      .poll(async () => page.locator("#cf-state").innerText(), { timeout: 15_000 })
+      .toMatch(/idle|—/);
+  });
 });

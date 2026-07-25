@@ -8,6 +8,8 @@ When coordinating multiple agents or shared lockable state, prefer the `porq` CL
 - Prefer `--session` + ephemeral POI tier for short-lived agent work; `porq gc` when done.
 - Path edits: declare `--claim "glob/**"` so the scheduler serializes overlapping work.
 - Do not invent parallel lock files; use `porq poi lock` / claims.
+- OS chrome / WinAPI capture: `porq -w tdrs-loop poi lock computer focus --wait` before `td_ui` (recipe `computer-focus`).
+- Dash `:9847` may Claim/Wait/Release `computer/focus` only; roadmap/git stay CLI-only.
 - Share status on the dashboard with `porq canvas set` (primary view); Details holds ops tables.
 - Canvas shape: H1 + state word + next command + freshness; tables over JSON dumps (see porq `docs/canvas-authoring.md`).
 - Multi-model work: register models, set affinities, prefer `--strategy single|race|moa --sync`.
