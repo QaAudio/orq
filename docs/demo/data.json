@@ -1,0 +1,1006 @@
+{
+  "active_sessions": [],
+  "affinities": [],
+  "blocked_pois": [],
+  "board": [
+    {
+      "blocked": false,
+      "blocker_reason": null,
+      "columns": {
+        "order": 6,
+        "span": 1
+      },
+      "key": "computer-focus",
+      "session": null,
+      "state": "live",
+      "table": "canvas",
+      "tier": "durable",
+      "updated_at": "2026-07-25T17:19:14.442728500Z",
+      "value": {
+        "body": "# Computer focus\r\n\r\n**Gate:** `none` | **Unit:** n/a | **Session:** n/a | **Iteration:** n/a\r\n**State:** DONE | **Generated:** 2026-07-25T12:00:00Z\r\n\r\n**state:** idle\r\n**lease:** none\r\n\r\nExclusive OS capture / foreground focus for `td_ui` and similar chrome work.\r\nThis static demo is **observe-only** — Claim / Wait / Release / Steal are\r\ndisabled (no live Store on GitHub Pages).\r\n\r\n**Next human command:** none — run locally with `porq -w tdrs-loop dash serve` to mutate.\r\n\r\nRecipe: `recipes/computer-focus.md`\r\n",
+        "kind": "markdown",
+        "title": "Computer focus",
+        "v": 1
+      },
+      "version": 1,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "blocked": false,
+      "blocker_reason": null,
+      "columns": {
+        "order": 4,
+        "span": 1
+      },
+      "key": "loop-checks",
+      "session": null,
+      "state": "live",
+      "table": "canvas",
+      "tier": "durable",
+      "updated_at": "2026-07-25T17:19:14.369232Z",
+      "value": {
+        "body": "# Loop Checks\r\n\r\n**Gate:** `none` | **Unit:** scratch-demo | **Session:** demo-static | **Iteration:** n/a\r\n**State:** DONE | **Generated:** 2026-07-25T12:00:00Z\r\n\r\nScratch check matrix from a claimed exec unit — all green. Proves the verify\r\npath paints a readable board without dumping full logs.\r\n\r\n**Next human command:** none — checks passed.\r\n\r\n| Check | Status | Detail |\r\n|---|---|---|\r\n| format | pass | `cargo fmt --check` |\r\n| clippy | pass | `-D warnings` |\r\n| unit | pass | `cargo test -p …` |\r\n| never-panic | pass | audit clean |\r\n\r\n_Demo fixture — green matrix after `exec-demo-scratch`._\r\n",
+        "kind": "markdown",
+        "title": "Loop Checks",
+        "v": 1
+      },
+      "version": 1,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "blocked": false,
+      "blocker_reason": null,
+      "columns": {
+        "order": 1,
+        "span": 1
+      },
+      "key": "loop-health",
+      "session": null,
+      "state": "live",
+      "table": "canvas",
+      "tier": "durable",
+      "updated_at": "2026-07-25T17:19:14.269895700Z",
+      "value": {
+        "body": "# Loop Health\r\n\r\n**Gate:** `none` | **Unit:** n/a | **Session:** n/a | **Iteration:** n/a\r\n**State:** DONE | **Generated:** 2026-07-25T12:00:00Z\r\n\r\nAll `tdrs-loop` bootstrap invariants hold: workspace present, schema marker\r\ncurrent, POI tables present, triggers registered, no stale-blocked POI rows.\r\n(Static Pages demo — daemon not running by design.)\r\n\r\n**Next human command:** none — workspace is healthy.\r\n\r\n| Check | Status | Detail |\r\n|---|---|---|\r\n| porq binary | pass | `target/release/porq` |\r\n| workspace 'tdrs-loop' | pass | present |\r\n| schema marker | pass | schemaVersion=1 |\r\n| POI tables | pass | all present |\r\n| triggers | pass | review-on-exec, veto-land, sanity-on-proposal |\r\n| daemon | warn | not required for static demo |\r\n| stale locks | pass | none blocked |\r\n\r\n_Demo fixture — regenerate with `npm run publish:demo`._\r\n",
+        "kind": "markdown",
+        "title": "Loop Health",
+        "v": 1
+      },
+      "version": 1,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "blocked": false,
+      "blocker_reason": null,
+      "columns": {
+        "order": 3,
+        "span": 1
+      },
+      "key": "loop-preflight",
+      "session": null,
+      "state": "live",
+      "table": "canvas",
+      "tier": "durable",
+      "updated_at": "2026-07-25T17:19:14.336998900Z",
+      "value": {
+        "body": "# Loop Preflight\r\n\r\n**Gate:** `none` | **Unit:** n/a | **Session:** n/a | **Iteration:** n/a\r\n**State:** HANDOFF | **Generated:** 2026-07-25T12:00:00Z\r\n\r\n**Verdict:** `not-ready` (exit 1) — profile `default`\r\n\r\n| Field | Value |\r\n|---|---|\r\n| Autonomy | `blocked` |\r\n| Pending | `0` |\r\n| Batch | `5` |\r\n| Batches Needed | `0` |\r\n| Outer Max | `20` |\r\n| Budget Math | `ok` |\r\n\r\nWith Active=`none`, **not-ready** is the expected, correct verdict — not a bug.\r\n\r\n**Next human command:** author the next gate in `docs/roadmap/STATE.json`, then re-run preflight (see loop-roadmap).\r\n\r\n_Demo fixture — program-stop / HANDOFF story._\r\n",
+        "kind": "markdown",
+        "title": "Loop Preflight",
+        "v": 1
+      },
+      "version": 1,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "blocked": false,
+      "blocker_reason": null,
+      "columns": {
+        "order": 5,
+        "span": 1
+      },
+      "key": "loop-review",
+      "session": null,
+      "state": "live",
+      "table": "canvas",
+      "tier": "durable",
+      "updated_at": "2026-07-25T17:19:14.401806400Z",
+      "value": {
+        "body": "# Loop Review\r\n\r\n**Gate:** `none` | **Unit:** scratch-demo | **Session:** demo-static | **Iteration:** n/a\r\n**State:** BLOCKED | **Generated:** 2026-07-25T12:00:00Z\r\n\r\n**Verdict:** `reject` — land veto path demonstrated.\r\n\r\nReview found a forced red on the scratch land unit so `land-*` never starts\r\nwhen `veto-land` fires. Observe on the board; CLI / harness remains control.\r\n\r\n**Next human command:** none — demo shows veto working; do not force-land.\r\n\r\n| Field | Value |\r\n|---|---|\r\n| Task | `exec-demo-scratch` |\r\n| Trigger | `veto-land` (blocking `task.pre-exec` on `land-*`) |\r\n| Result | land blocked |\r\n\r\n_Demo fixture — red review proving land-veto._\r\n",
+        "kind": "markdown",
+        "title": "Loop Review",
+        "v": 1
+      },
+      "version": 1,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "blocked": false,
+      "blocker_reason": null,
+      "columns": {
+        "order": 2,
+        "span": 1
+      },
+      "key": "loop-roadmap",
+      "session": null,
+      "state": "live",
+      "table": "canvas",
+      "tier": "durable",
+      "updated_at": "2026-07-25T17:19:14.296501500Z",
+      "value": {
+        "body": "# Loop Roadmap\r\n\r\n**Gate:** `none` | **Unit:** n/a | **Session:** n/a | **Iteration:** n/a\r\n**State:** HANDOFF | **Generated:** 2026-07-25T12:00:00Z\r\n\r\n> **Program stop.** No Active Expand/Deepen gate. Do not invent breadth; next\r\n> fidelity wave needs a named gate + human clearance.\r\n\r\n**Later:** _(none — no gate is queued)_\r\n\r\n**Next human command:** author the next gate in `docs/roadmap/STATE.json`, then sync the roadmap mirror.\r\n\r\n## Queue metadata\r\n\r\n- TOP: done **88**, pending **0**, blocked **0**, error **0**\r\n- CHOP: done **102**, pending **0**, blocked **0**, error **0**\r\n- DAT: done **71**, pending **0**, blocked **0**, error **0**\r\n- SOP: done **112**, pending **0**, blocked **0**, error **0**\r\n- POP: done **101**, pending **0**, blocked **0**, error **0**\r\n- MAT: done **13**, pending **0**, blocked **0**, error **0**\r\n- COMP: done **43**, pending **0**, blocked **0**, error **0**\r\n\r\n_Demo fixture — mirrors the td-rs autonomous-loop showcase (Active: none)._\r\n",
+        "kind": "markdown",
+        "title": "Loop Roadmap",
+        "v": 1
+      },
+      "version": 1,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "blocked": false,
+      "blocker_reason": null,
+      "columns": {},
+      "key": "focus",
+      "session": null,
+      "state": "idle",
+      "table": "computer",
+      "tier": "durable",
+      "updated_at": "2026-07-25T17:19:13.904934400Z",
+      "value": {
+        "holder_kind": "",
+        "note": "",
+        "purpose": "",
+        "session": "",
+        "v": 1,
+        "yield_by": null,
+        "yield_requested": false
+      },
+      "version": 1,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "blocked": false,
+      "blocker_reason": null,
+      "columns": {},
+      "key": "schema",
+      "session": null,
+      "state": "v1",
+      "table": "meta",
+      "tier": "durable",
+      "updated_at": "2026-07-25T17:19:13.813531100Z",
+      "value": 1,
+      "version": 1,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "blocked": false,
+      "blocker_reason": null,
+      "columns": {},
+      "key": "schema-doc",
+      "session": null,
+      "state": "active",
+      "table": "meta",
+      "tier": "durable",
+      "updated_at": "2026-07-25T17:19:13.844897300Z",
+      "value": "docs/usecases/td-rs-autonomous-loop.md",
+      "version": 1,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "blocked": false,
+      "blocker_reason": null,
+      "columns": {},
+      "key": "demo/**",
+      "session": null,
+      "state": "claimed",
+      "table": "paths",
+      "tier": "ephemeral",
+      "updated_at": "2026-07-25T17:19:14.086204700Z",
+      "value": {
+        "glob": "demo/**"
+      },
+      "version": 1,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "blocked": false,
+      "blocker_reason": null,
+      "columns": {
+        "body": "Forced red review for demo",
+        "state": "blocked",
+        "task_id": "exec-demo-scratch",
+        "verdict": "reject"
+      },
+      "key": "exec-demo-scratch",
+      "session": null,
+      "state": "blocked",
+      "table": "reviews",
+      "tier": "durable",
+      "updated_at": "2026-07-25T17:19:13.942621200Z",
+      "value": {
+        "body": "Forced red — land veto path for static demo",
+        "task_id": "exec-demo-scratch",
+        "verdict": "reject"
+      },
+      "version": 1,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "blocked": false,
+      "blocker_reason": null,
+      "columns": {
+        "kind": "meta",
+        "order": 0,
+        "status": "closed"
+      },
+      "key": "_meta",
+      "session": null,
+      "state": "closed",
+      "table": "roadmap",
+      "tier": "durable",
+      "updated_at": "2026-07-25T17:19:13.873499200Z",
+      "value": {
+        "active": null,
+        "note": "Active: none — showcase HANDOFF",
+        "stopState": "program-stop"
+      },
+      "version": 1,
+      "workspace": "tdrs-loop"
+    }
+  ],
+  "canvases": [
+    {
+      "blocked": false,
+      "blocker_reason": null,
+      "columns": {
+        "order": 1,
+        "span": 1
+      },
+      "key": "loop-health",
+      "session": null,
+      "state": "live",
+      "table": "canvas",
+      "tier": "durable",
+      "updated_at": "2026-07-25T17:19:14.269895700Z",
+      "value": {
+        "body": "# Loop Health\r\n\r\n**Gate:** `none` | **Unit:** n/a | **Session:** n/a | **Iteration:** n/a\r\n**State:** DONE | **Generated:** 2026-07-25T12:00:00Z\r\n\r\nAll `tdrs-loop` bootstrap invariants hold: workspace present, schema marker\r\ncurrent, POI tables present, triggers registered, no stale-blocked POI rows.\r\n(Static Pages demo — daemon not running by design.)\r\n\r\n**Next human command:** none — workspace is healthy.\r\n\r\n| Check | Status | Detail |\r\n|---|---|---|\r\n| porq binary | pass | `target/release/porq` |\r\n| workspace 'tdrs-loop' | pass | present |\r\n| schema marker | pass | schemaVersion=1 |\r\n| POI tables | pass | all present |\r\n| triggers | pass | review-on-exec, veto-land, sanity-on-proposal |\r\n| daemon | warn | not required for static demo |\r\n| stale locks | pass | none blocked |\r\n\r\n_Demo fixture — regenerate with `npm run publish:demo`._\r\n",
+        "kind": "markdown",
+        "title": "Loop Health",
+        "v": 1
+      },
+      "version": 1,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "blocked": false,
+      "blocker_reason": null,
+      "columns": {
+        "order": 2,
+        "span": 1
+      },
+      "key": "loop-roadmap",
+      "session": null,
+      "state": "live",
+      "table": "canvas",
+      "tier": "durable",
+      "updated_at": "2026-07-25T17:19:14.296501500Z",
+      "value": {
+        "body": "# Loop Roadmap\r\n\r\n**Gate:** `none` | **Unit:** n/a | **Session:** n/a | **Iteration:** n/a\r\n**State:** HANDOFF | **Generated:** 2026-07-25T12:00:00Z\r\n\r\n> **Program stop.** No Active Expand/Deepen gate. Do not invent breadth; next\r\n> fidelity wave needs a named gate + human clearance.\r\n\r\n**Later:** _(none — no gate is queued)_\r\n\r\n**Next human command:** author the next gate in `docs/roadmap/STATE.json`, then sync the roadmap mirror.\r\n\r\n## Queue metadata\r\n\r\n- TOP: done **88**, pending **0**, blocked **0**, error **0**\r\n- CHOP: done **102**, pending **0**, blocked **0**, error **0**\r\n- DAT: done **71**, pending **0**, blocked **0**, error **0**\r\n- SOP: done **112**, pending **0**, blocked **0**, error **0**\r\n- POP: done **101**, pending **0**, blocked **0**, error **0**\r\n- MAT: done **13**, pending **0**, blocked **0**, error **0**\r\n- COMP: done **43**, pending **0**, blocked **0**, error **0**\r\n\r\n_Demo fixture — mirrors the td-rs autonomous-loop showcase (Active: none)._\r\n",
+        "kind": "markdown",
+        "title": "Loop Roadmap",
+        "v": 1
+      },
+      "version": 1,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "blocked": false,
+      "blocker_reason": null,
+      "columns": {
+        "order": 3,
+        "span": 1
+      },
+      "key": "loop-preflight",
+      "session": null,
+      "state": "live",
+      "table": "canvas",
+      "tier": "durable",
+      "updated_at": "2026-07-25T17:19:14.336998900Z",
+      "value": {
+        "body": "# Loop Preflight\r\n\r\n**Gate:** `none` | **Unit:** n/a | **Session:** n/a | **Iteration:** n/a\r\n**State:** HANDOFF | **Generated:** 2026-07-25T12:00:00Z\r\n\r\n**Verdict:** `not-ready` (exit 1) — profile `default`\r\n\r\n| Field | Value |\r\n|---|---|\r\n| Autonomy | `blocked` |\r\n| Pending | `0` |\r\n| Batch | `5` |\r\n| Batches Needed | `0` |\r\n| Outer Max | `20` |\r\n| Budget Math | `ok` |\r\n\r\nWith Active=`none`, **not-ready** is the expected, correct verdict — not a bug.\r\n\r\n**Next human command:** author the next gate in `docs/roadmap/STATE.json`, then re-run preflight (see loop-roadmap).\r\n\r\n_Demo fixture — program-stop / HANDOFF story._\r\n",
+        "kind": "markdown",
+        "title": "Loop Preflight",
+        "v": 1
+      },
+      "version": 1,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "blocked": false,
+      "blocker_reason": null,
+      "columns": {
+        "order": 4,
+        "span": 1
+      },
+      "key": "loop-checks",
+      "session": null,
+      "state": "live",
+      "table": "canvas",
+      "tier": "durable",
+      "updated_at": "2026-07-25T17:19:14.369232Z",
+      "value": {
+        "body": "# Loop Checks\r\n\r\n**Gate:** `none` | **Unit:** scratch-demo | **Session:** demo-static | **Iteration:** n/a\r\n**State:** DONE | **Generated:** 2026-07-25T12:00:00Z\r\n\r\nScratch check matrix from a claimed exec unit — all green. Proves the verify\r\npath paints a readable board without dumping full logs.\r\n\r\n**Next human command:** none — checks passed.\r\n\r\n| Check | Status | Detail |\r\n|---|---|---|\r\n| format | pass | `cargo fmt --check` |\r\n| clippy | pass | `-D warnings` |\r\n| unit | pass | `cargo test -p …` |\r\n| never-panic | pass | audit clean |\r\n\r\n_Demo fixture — green matrix after `exec-demo-scratch`._\r\n",
+        "kind": "markdown",
+        "title": "Loop Checks",
+        "v": 1
+      },
+      "version": 1,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "blocked": false,
+      "blocker_reason": null,
+      "columns": {
+        "order": 5,
+        "span": 1
+      },
+      "key": "loop-review",
+      "session": null,
+      "state": "live",
+      "table": "canvas",
+      "tier": "durable",
+      "updated_at": "2026-07-25T17:19:14.401806400Z",
+      "value": {
+        "body": "# Loop Review\r\n\r\n**Gate:** `none` | **Unit:** scratch-demo | **Session:** demo-static | **Iteration:** n/a\r\n**State:** BLOCKED | **Generated:** 2026-07-25T12:00:00Z\r\n\r\n**Verdict:** `reject` — land veto path demonstrated.\r\n\r\nReview found a forced red on the scratch land unit so `land-*` never starts\r\nwhen `veto-land` fires. Observe on the board; CLI / harness remains control.\r\n\r\n**Next human command:** none — demo shows veto working; do not force-land.\r\n\r\n| Field | Value |\r\n|---|---|\r\n| Task | `exec-demo-scratch` |\r\n| Trigger | `veto-land` (blocking `task.pre-exec` on `land-*`) |\r\n| Result | land blocked |\r\n\r\n_Demo fixture — red review proving land-veto._\r\n",
+        "kind": "markdown",
+        "title": "Loop Review",
+        "v": 1
+      },
+      "version": 1,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "blocked": false,
+      "blocker_reason": null,
+      "columns": {
+        "order": 6,
+        "span": 1
+      },
+      "key": "computer-focus",
+      "session": null,
+      "state": "live",
+      "table": "canvas",
+      "tier": "durable",
+      "updated_at": "2026-07-25T17:19:14.442728500Z",
+      "value": {
+        "body": "# Computer focus\r\n\r\n**Gate:** `none` | **Unit:** n/a | **Session:** n/a | **Iteration:** n/a\r\n**State:** DONE | **Generated:** 2026-07-25T12:00:00Z\r\n\r\n**state:** idle\r\n**lease:** none\r\n\r\nExclusive OS capture / foreground focus for `td_ui` and similar chrome work.\r\nThis static demo is **observe-only** — Claim / Wait / Release / Steal are\r\ndisabled (no live Store on GitHub Pages).\r\n\r\n**Next human command:** none — run locally with `porq -w tdrs-loop dash serve` to mutate.\r\n\r\nRecipe: `recipes/computer-focus.md`\r\n",
+        "kind": "markdown",
+        "title": "Computer focus",
+        "v": 1
+      },
+      "version": 1,
+      "workspace": "tdrs-loop"
+    }
+  ],
+  "computer_focus": {
+    "blocked": false,
+    "blocker_reason": null,
+    "columns": {},
+    "key": "focus",
+    "session": null,
+    "state": "idle",
+    "table": "computer",
+    "tier": "durable",
+    "updated_at": "2026-07-25T17:19:13.904934400Z",
+    "value": {
+      "holder_kind": "",
+      "note": "",
+      "purpose": "",
+      "session": "",
+      "v": 1,
+      "yield_by": null,
+      "yield_requested": false
+    },
+    "version": 1,
+    "workspace": "tdrs-loop"
+  },
+  "daemon": {
+    "running": false
+  },
+  "events": [
+    {
+      "created_at": "2026-07-25T17:19:13.409771200Z",
+      "id": 1,
+      "kind": "workspace.created",
+      "payload": {
+        "name": "tdrs-loop",
+        "root": "C:\\Users\\corbe\\AppData\\Local\\Temp\\orq-tdrs-demo-3ZcpM8\\workspaces\\tdrs-loop"
+      },
+      "session": null,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "created_at": "2026-07-25T17:19:13.813603100Z",
+      "id": 2,
+      "kind": "poi.changed",
+      "payload": {
+        "key": "schema",
+        "state": "v1",
+        "table": "meta",
+        "value": 1,
+        "version": 1
+      },
+      "session": null,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "created_at": "2026-07-25T17:19:13.844964200Z",
+      "id": 3,
+      "kind": "poi.changed",
+      "payload": {
+        "key": "schema-doc",
+        "state": "active",
+        "table": "meta",
+        "value": "docs/usecases/td-rs-autonomous-loop.md",
+        "version": 1
+      },
+      "session": null,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "created_at": "2026-07-25T17:19:13.873575100Z",
+      "id": 4,
+      "kind": "poi.changed",
+      "payload": {
+        "key": "_meta",
+        "state": "closed",
+        "table": "roadmap",
+        "value": {
+          "active": null,
+          "note": "Active: none — showcase HANDOFF",
+          "stopState": "program-stop"
+        },
+        "version": 1
+      },
+      "session": null,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "created_at": "2026-07-25T17:19:13.905008500Z",
+      "id": 5,
+      "kind": "poi.changed",
+      "payload": {
+        "key": "focus",
+        "state": "idle",
+        "table": "computer",
+        "value": {
+          "holder_kind": "",
+          "note": "",
+          "purpose": "",
+          "session": "",
+          "v": 1,
+          "yield_by": null,
+          "yield_requested": false
+        },
+        "version": 1
+      },
+      "session": null,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "created_at": "2026-07-25T17:19:13.942701900Z",
+      "id": 6,
+      "kind": "poi.changed",
+      "payload": {
+        "key": "exec-demo-scratch",
+        "state": "blocked",
+        "table": "reviews",
+        "value": {
+          "body": "Forced red — land veto path for static demo",
+          "task_id": "exec-demo-scratch",
+          "verdict": "reject"
+        },
+        "version": 1
+      },
+      "session": null,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "created_at": "2026-07-25T17:19:13.981536400Z",
+      "id": 7,
+      "kind": "trigger.created",
+      "payload": {
+        "id": "fccdbeaa-2040-4e36-9705-5f81c3996093",
+        "name": "review-on-exec",
+        "pattern": "task.done"
+      },
+      "session": null,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "created_at": "2026-07-25T17:19:14.020805700Z",
+      "id": 8,
+      "kind": "trigger.created",
+      "payload": {
+        "id": "5ba4f3ef-90e6-417b-85c6-b0b0ab537aca",
+        "name": "veto-land",
+        "pattern": "task.pre-exec"
+      },
+      "session": null,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "created_at": "2026-07-25T17:19:14.053387800Z",
+      "id": 9,
+      "kind": "trigger.created",
+      "payload": {
+        "id": "ff014e61-8d7c-4404-a36a-506060725422",
+        "name": "sanity-on-proposal",
+        "pattern": "poi.changed"
+      },
+      "session": null,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "created_at": "2026-07-25T17:19:14.079580500Z",
+      "id": 10,
+      "kind": "task.created",
+      "payload": {
+        "command": "echo exec-demo-scratch ok",
+        "id": "08feeb72-83be-425f-8091-f7233ed475d7",
+        "job_id": null,
+        "model_id": null,
+        "name": "exec-demo-scratch"
+      },
+      "session": null,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "created_at": "2026-07-25T17:19:14.086273200Z",
+      "id": 11,
+      "kind": "poi.changed",
+      "payload": {
+        "key": "demo/**",
+        "state": "claimed",
+        "table": "paths",
+        "value": {
+          "glob": "demo/**"
+        },
+        "version": 1
+      },
+      "session": null,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "created_at": "2026-07-25T17:19:14.086401500Z",
+      "id": 12,
+      "kind": "poi.locked",
+      "payload": {
+        "holder": "08feeb72-83be-425f-8091-f7233ed475d7",
+        "key": "demo/**",
+        "kind": "write",
+        "table": "paths"
+      },
+      "session": null,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "created_at": "2026-07-25T17:19:14.134161600Z",
+      "id": 13,
+      "kind": "task.done",
+      "payload": {
+        "exit_code": 0,
+        "id": "08feeb72-83be-425f-8091-f7233ed475d7",
+        "name": "exec-demo-scratch"
+      },
+      "session": null,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "created_at": "2026-07-25T17:19:14.134380100Z",
+      "id": 14,
+      "kind": "trigger.fired",
+      "payload": {
+        "depth": 0,
+        "event": "task.done",
+        "name": "review-on-exec",
+        "trigger_id": "fccdbeaa-2040-4e36-9705-5f81c3996093"
+      },
+      "session": null,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "created_at": "2026-07-25T17:19:14.134459200Z",
+      "id": 15,
+      "kind": "task.created",
+      "payload": {
+        "command": "set \"ORQ_EVENT=task.done\"&& set \"ORQ_EVENT_ID=08feeb72-83be-425f-8091-f7233ed475d7\"&& set \"ORQ_EVENT_NAME=exec-demo-scratch\"&& set \"ORQ_EVENT_EXIT_CODE=0\"&& cmd /c exit 0",
+        "id": "34fc3896-23f7-4549-a00c-de336249aff0",
+        "job_id": null,
+        "model_id": null,
+        "name": "triggered"
+      },
+      "session": null,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "created_at": "2026-07-25T17:19:14.134513300Z",
+      "id": 16,
+      "kind": "task.queued_by_trigger",
+      "payload": {
+        "command": "set \"ORQ_EVENT=task.done\"&& set \"ORQ_EVENT_ID=08feeb72-83be-425f-8091-f7233ed475d7\"&& set \"ORQ_EVENT_NAME=exec-demo-scratch\"&& set \"ORQ_EVENT_EXIT_CODE=0\"&& cmd /c exit 0",
+        "event": "task.done",
+        "id": "34fc3896-23f7-4549-a00c-de336249aff0",
+        "payload": {
+          "exit_code": 0,
+          "id": "08feeb72-83be-425f-8091-f7233ed475d7",
+          "name": "exec-demo-scratch"
+        }
+      },
+      "session": null,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "created_at": "2026-07-25T17:19:14.165370900Z",
+      "id": 17,
+      "kind": "task.created",
+      "payload": {
+        "command": "echo should-not-run",
+        "id": "5cfed8ef-e71b-471c-ae11-a7f266dc36ae",
+        "job_id": null,
+        "model_id": null,
+        "name": "land-demo-scratch"
+      },
+      "session": null,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "created_at": "2026-07-25T17:19:14.173063700Z",
+      "id": 18,
+      "kind": "trigger.fired",
+      "payload": {
+        "depth": 0,
+        "event": "task.pre-exec",
+        "name": "veto-land",
+        "trigger_id": "5ba4f3ef-90e6-417b-85c6-b0b0ab537aca"
+      },
+      "session": null,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "created_at": "2026-07-25T17:19:14.173145200Z",
+      "id": 19,
+      "kind": "task.created",
+      "payload": {
+        "command": "set \"ORQ_EVENT=task.pre-exec\"&& set \"ORQ_EVENT_ID=5cfed8ef-e71b-471c-ae11-a7f266dc36ae\"&& set \"ORQ_EVENT_NAME=land-demo-scratch\"&& cmd /c exit 1",
+        "id": "8022931c-c803-4be0-9806-16a713a240a4",
+        "job_id": null,
+        "model_id": null,
+        "name": "triggered"
+      },
+      "session": null,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "created_at": "2026-07-25T17:19:14.173336500Z",
+      "id": 20,
+      "kind": "task.queued_by_trigger",
+      "payload": {
+        "command": "set \"ORQ_EVENT=task.pre-exec\"&& set \"ORQ_EVENT_ID=5cfed8ef-e71b-471c-ae11-a7f266dc36ae\"&& set \"ORQ_EVENT_NAME=land-demo-scratch\"&& cmd /c exit 1",
+        "event": "task.pre-exec",
+        "id": "8022931c-c803-4be0-9806-16a713a240a4",
+        "payload": {
+          "id": "5cfed8ef-e71b-471c-ae11-a7f266dc36ae",
+          "name": "land-demo-scratch"
+        }
+      },
+      "session": null,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "created_at": "2026-07-25T17:19:14.230861300Z",
+      "id": 21,
+      "kind": "task.done",
+      "payload": {
+        "exit_code": 0,
+        "id": "5cfed8ef-e71b-471c-ae11-a7f266dc36ae",
+        "name": "land-demo-scratch"
+      },
+      "session": null,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "created_at": "2026-07-25T17:19:14.269986900Z",
+      "id": 22,
+      "kind": "poi.changed",
+      "payload": {
+        "key": "loop-health",
+        "state": "live",
+        "table": "canvas",
+        "value": {
+          "body": "# Loop Health\r\n\r\n**Gate:** `none` | **Unit:** n/a | **Session:** n/a | **Iteration:** n/a\r\n**State:** DONE | **Generated:** 2026-07-25T12:00:00Z\r\n\r\nAll `tdrs-loop` bootstrap invariants hold: workspace present, schema marker\r\ncurrent, POI tables present, triggers registered, no stale-blocked POI rows.\r\n(Static Pages demo — daemon not running by design.)\r\n\r\n**Next human command:** none — workspace is healthy.\r\n\r\n| Check | Status | Detail |\r\n|---|---|---|\r\n| porq binary | pass | `target/release/porq` |\r\n| workspace 'tdrs-loop' | pass | present |\r\n| schema marker | pass | schemaVersion=1 |\r\n| POI tables | pass | all present |\r\n| triggers | pass | review-on-exec, veto-land, sanity-on-proposal |\r\n| daemon | warn | not required for static demo |\r\n| stale locks | pass | none blocked |\r\n\r\n_Demo fixture — regenerate with `npm run publish:demo`._\r\n",
+          "kind": "markdown",
+          "title": "Loop Health",
+          "v": 1
+        },
+        "version": 1
+      },
+      "session": null,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "created_at": "2026-07-25T17:19:14.296592900Z",
+      "id": 23,
+      "kind": "poi.changed",
+      "payload": {
+        "key": "loop-roadmap",
+        "state": "live",
+        "table": "canvas",
+        "value": {
+          "body": "# Loop Roadmap\r\n\r\n**Gate:** `none` | **Unit:** n/a | **Session:** n/a | **Iteration:** n/a\r\n**State:** HANDOFF | **Generated:** 2026-07-25T12:00:00Z\r\n\r\n> **Program stop.** No Active Expand/Deepen gate. Do not invent breadth; next\r\n> fidelity wave needs a named gate + human clearance.\r\n\r\n**Later:** _(none — no gate is queued)_\r\n\r\n**Next human command:** author the next gate in `docs/roadmap/STATE.json`, then sync the roadmap mirror.\r\n\r\n## Queue metadata\r\n\r\n- TOP: done **88**, pending **0**, blocked **0**, error **0**\r\n- CHOP: done **102**, pending **0**, blocked **0**, error **0**\r\n- DAT: done **71**, pending **0**, blocked **0**, error **0**\r\n- SOP: done **112**, pending **0**, blocked **0**, error **0**\r\n- POP: done **101**, pending **0**, blocked **0**, error **0**\r\n- MAT: done **13**, pending **0**, blocked **0**, error **0**\r\n- COMP: done **43**, pending **0**, blocked **0**, error **0**\r\n\r\n_Demo fixture — mirrors the td-rs autonomous-loop showcase (Active: none)._\r\n",
+          "kind": "markdown",
+          "title": "Loop Roadmap",
+          "v": 1
+        },
+        "version": 1
+      },
+      "session": null,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "created_at": "2026-07-25T17:19:14.337095100Z",
+      "id": 24,
+      "kind": "poi.changed",
+      "payload": {
+        "key": "loop-preflight",
+        "state": "live",
+        "table": "canvas",
+        "value": {
+          "body": "# Loop Preflight\r\n\r\n**Gate:** `none` | **Unit:** n/a | **Session:** n/a | **Iteration:** n/a\r\n**State:** HANDOFF | **Generated:** 2026-07-25T12:00:00Z\r\n\r\n**Verdict:** `not-ready` (exit 1) — profile `default`\r\n\r\n| Field | Value |\r\n|---|---|\r\n| Autonomy | `blocked` |\r\n| Pending | `0` |\r\n| Batch | `5` |\r\n| Batches Needed | `0` |\r\n| Outer Max | `20` |\r\n| Budget Math | `ok` |\r\n\r\nWith Active=`none`, **not-ready** is the expected, correct verdict — not a bug.\r\n\r\n**Next human command:** author the next gate in `docs/roadmap/STATE.json`, then re-run preflight (see loop-roadmap).\r\n\r\n_Demo fixture — program-stop / HANDOFF story._\r\n",
+          "kind": "markdown",
+          "title": "Loop Preflight",
+          "v": 1
+        },
+        "version": 1
+      },
+      "session": null,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "created_at": "2026-07-25T17:19:14.369326300Z",
+      "id": 25,
+      "kind": "poi.changed",
+      "payload": {
+        "key": "loop-checks",
+        "state": "live",
+        "table": "canvas",
+        "value": {
+          "body": "# Loop Checks\r\n\r\n**Gate:** `none` | **Unit:** scratch-demo | **Session:** demo-static | **Iteration:** n/a\r\n**State:** DONE | **Generated:** 2026-07-25T12:00:00Z\r\n\r\nScratch check matrix from a claimed exec unit — all green. Proves the verify\r\npath paints a readable board without dumping full logs.\r\n\r\n**Next human command:** none — checks passed.\r\n\r\n| Check | Status | Detail |\r\n|---|---|---|\r\n| format | pass | `cargo fmt --check` |\r\n| clippy | pass | `-D warnings` |\r\n| unit | pass | `cargo test -p …` |\r\n| never-panic | pass | audit clean |\r\n\r\n_Demo fixture — green matrix after `exec-demo-scratch`._\r\n",
+          "kind": "markdown",
+          "title": "Loop Checks",
+          "v": 1
+        },
+        "version": 1
+      },
+      "session": null,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "created_at": "2026-07-25T17:19:14.401902600Z",
+      "id": 26,
+      "kind": "poi.changed",
+      "payload": {
+        "key": "loop-review",
+        "state": "live",
+        "table": "canvas",
+        "value": {
+          "body": "# Loop Review\r\n\r\n**Gate:** `none` | **Unit:** scratch-demo | **Session:** demo-static | **Iteration:** n/a\r\n**State:** BLOCKED | **Generated:** 2026-07-25T12:00:00Z\r\n\r\n**Verdict:** `reject` — land veto path demonstrated.\r\n\r\nReview found a forced red on the scratch land unit so `land-*` never starts\r\nwhen `veto-land` fires. Observe on the board; CLI / harness remains control.\r\n\r\n**Next human command:** none — demo shows veto working; do not force-land.\r\n\r\n| Field | Value |\r\n|---|---|\r\n| Task | `exec-demo-scratch` |\r\n| Trigger | `veto-land` (blocking `task.pre-exec` on `land-*`) |\r\n| Result | land blocked |\r\n\r\n_Demo fixture — red review proving land-veto._\r\n",
+          "kind": "markdown",
+          "title": "Loop Review",
+          "v": 1
+        },
+        "version": 1
+      },
+      "session": null,
+      "workspace": "tdrs-loop"
+    },
+    {
+      "created_at": "2026-07-25T17:19:14.442819700Z",
+      "id": 27,
+      "kind": "poi.changed",
+      "payload": {
+        "key": "computer-focus",
+        "state": "live",
+        "table": "canvas",
+        "value": {
+          "body": "# Computer focus\r\n\r\n**Gate:** `none` | **Unit:** n/a | **Session:** n/a | **Iteration:** n/a\r\n**State:** DONE | **Generated:** 2026-07-25T12:00:00Z\r\n\r\n**state:** idle\r\n**lease:** none\r\n\r\nExclusive OS capture / foreground focus for `td_ui` and similar chrome work.\r\nThis static demo is **observe-only** — Claim / Wait / Release / Steal are\r\ndisabled (no live Store on GitHub Pages).\r\n\r\n**Next human command:** none — run locally with `porq -w tdrs-loop dash serve` to mutate.\r\n\r\nRecipe: `recipes/computer-focus.md`\r\n",
+          "kind": "markdown",
+          "title": "Computer focus",
+          "v": 1
+        },
+        "version": 1
+      },
+      "session": null,
+      "workspace": "tdrs-loop"
+    }
+  ],
+  "files": [],
+  "jobs": [],
+  "leases": [],
+  "models": [],
+  "tasks": [
+    {
+      "attempt": 0,
+      "claims": [],
+      "class": null,
+      "command": "set \"ORQ_EVENT=task.pre-exec\"&& set \"ORQ_EVENT_ID=5cfed8ef-e71b-471c-ae11-a7f266dc36ae\"&& set \"ORQ_EVENT_NAME=land-demo-scratch\"&& cmd /c exit 1",
+      "created_at": "2026-07-25T17:19:14.173122Z",
+      "cwd": "C:\\Users\\corbe\\AppData\\Local\\Temp\\orq-tdrs-demo-3ZcpM8\\workspaces\\tdrs-loop",
+      "depends_on": [],
+      "exit_code": null,
+      "id": "8022931c-c803-4be0-9806-16a713a240a4",
+      "job_id": null,
+      "kind": "oneshot",
+      "log_path": null,
+      "max_attempts": 1,
+      "model_id": null,
+      "name": "triggered",
+      "needs_poi": [],
+      "pid": null,
+      "profile": "shell",
+      "restart": "never",
+      "role": null,
+      "session": null,
+      "status": "queued",
+      "updated_at": "2026-07-25T17:19:14.173122100Z",
+      "workspace": "tdrs-loop"
+    },
+    {
+      "attempt": 1,
+      "claims": [],
+      "class": null,
+      "command": "echo should-not-run",
+      "created_at": "2026-07-25T17:19:14.165325900Z",
+      "cwd": "C:\\Users\\corbe\\AppData\\Local\\Temp\\orq-tdrs-demo-3ZcpM8\\workspaces\\tdrs-loop",
+      "depends_on": [],
+      "exit_code": 0,
+      "id": "5cfed8ef-e71b-471c-ae11-a7f266dc36ae",
+      "job_id": null,
+      "kind": "oneshot",
+      "log_path": "C:\\Users\\corbe\\AppData\\Local\\Temp\\orq-tdrs-demo-3ZcpM8\\logs\\5cfed8ef-e71b-471c-ae11-a7f266dc36ae.log",
+      "max_attempts": 1,
+      "model_id": null,
+      "name": "land-demo-scratch",
+      "needs_poi": [],
+      "pid": null,
+      "profile": "shell",
+      "restart": "never",
+      "role": null,
+      "session": null,
+      "status": "done",
+      "updated_at": "2026-07-25T17:19:14.230708300Z",
+      "workspace": "tdrs-loop"
+    },
+    {
+      "attempt": 0,
+      "claims": [],
+      "class": null,
+      "command": "set \"ORQ_EVENT=task.done\"&& set \"ORQ_EVENT_ID=08feeb72-83be-425f-8091-f7233ed475d7\"&& set \"ORQ_EVENT_NAME=exec-demo-scratch\"&& set \"ORQ_EVENT_EXIT_CODE=0\"&& cmd /c exit 0",
+      "created_at": "2026-07-25T17:19:14.134438100Z",
+      "cwd": "C:\\Users\\corbe\\AppData\\Local\\Temp\\orq-tdrs-demo-3ZcpM8\\workspaces\\tdrs-loop",
+      "depends_on": [],
+      "exit_code": null,
+      "id": "34fc3896-23f7-4549-a00c-de336249aff0",
+      "job_id": null,
+      "kind": "oneshot",
+      "log_path": null,
+      "max_attempts": 1,
+      "model_id": null,
+      "name": "triggered",
+      "needs_poi": [],
+      "pid": null,
+      "profile": "shell",
+      "restart": "never",
+      "role": null,
+      "session": null,
+      "status": "queued",
+      "updated_at": "2026-07-25T17:19:14.134438100Z",
+      "workspace": "tdrs-loop"
+    },
+    {
+      "attempt": 1,
+      "claims": [
+        "demo/**"
+      ],
+      "class": null,
+      "command": "echo exec-demo-scratch ok",
+      "created_at": "2026-07-25T17:19:14.079519500Z",
+      "cwd": "C:\\Users\\corbe\\AppData\\Local\\Temp\\orq-tdrs-demo-3ZcpM8\\workspaces\\tdrs-loop",
+      "depends_on": [],
+      "exit_code": 0,
+      "id": "08feeb72-83be-425f-8091-f7233ed475d7",
+      "job_id": null,
+      "kind": "oneshot",
+      "log_path": "C:\\Users\\corbe\\AppData\\Local\\Temp\\orq-tdrs-demo-3ZcpM8\\logs\\08feeb72-83be-425f-8091-f7233ed475d7.log",
+      "max_attempts": 1,
+      "model_id": null,
+      "name": "exec-demo-scratch",
+      "needs_poi": [],
+      "pid": null,
+      "profile": "shell",
+      "restart": "never",
+      "role": null,
+      "session": null,
+      "status": "done",
+      "updated_at": "2026-07-25T17:19:14.133940500Z",
+      "workspace": "tdrs-loop"
+    }
+  ],
+  "trigger_failures": [],
+  "triggers": [
+    {
+      "actions": [
+        {
+          "command": "cmd /c exit 0",
+          "kind": null,
+          "name": "triggered",
+          "op": "spawn_task"
+        }
+      ],
+      "blocking": false,
+      "condition": "name^=exec-",
+      "created_at": "2026-07-25T17:19:13.975076Z",
+      "enabled": true,
+      "event_pattern": "task.done",
+      "id": "fccdbeaa-2040-4e36-9705-5f81c3996093",
+      "max_fires_per_hour": 30,
+      "name": "review-on-exec",
+      "workspace": "tdrs-loop"
+    },
+    {
+      "actions": [
+        {
+          "command": "cmd /c exit 0",
+          "kind": null,
+          "name": "triggered",
+          "op": "spawn_task"
+        }
+      ],
+      "blocking": false,
+      "condition": "table==roadmap-proposals && state==proposed",
+      "created_at": "2026-07-25T17:19:14.046855600Z",
+      "enabled": true,
+      "event_pattern": "poi.changed",
+      "id": "ff014e61-8d7c-4404-a36a-506060725422",
+      "max_fires_per_hour": 20,
+      "name": "sanity-on-proposal",
+      "workspace": "tdrs-loop"
+    },
+    {
+      "actions": [
+        {
+          "command": "cmd /c exit 1",
+          "kind": null,
+          "name": "triggered",
+          "op": "spawn_task"
+        }
+      ],
+      "blocking": true,
+      "condition": "name^=land-",
+      "created_at": "2026-07-25T17:19:14.014544500Z",
+      "enabled": true,
+      "event_pattern": "task.pre-exec",
+      "id": "5ba4f3ef-90e6-417b-85c6-b0b0ab537aca",
+      "max_fires_per_hour": 60,
+      "name": "veto-land",
+      "workspace": "tdrs-loop"
+    }
+  ],
+  "updated": "2026-07-25T17:19:14.471791+00:00",
+  "workspace": "tdrs-loop",
+  "static_demo": true,
+  "demo": {
+    "kind": "static",
+    "narrative": "tdrs-loop",
+    "note": "Observe-only GitHub Pages demo — real dashboard UI, frozen snapshot."
+  }
+}

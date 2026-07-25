@@ -142,19 +142,19 @@ test.describe("porq dashboard", () => {
       timeout: 10_000,
     });
 
-    const baseLink = page.locator('link[href="/themes/base.css"]');
+    const baseLink = page.locator('link[href="themes/base.css"]');
     await expect(baseLink).toHaveCount(1);
     const pack = page.locator("#theme-pack");
-    await expect(pack).toHaveAttribute("href", /\/themes\/.+\.css/);
+    await expect(pack).toHaveAttribute("href", /themes\/.+\.css/);
     await expect(page.locator("html")).toHaveAttribute("data-theme", "default");
 
     await page.locator("#theme-select").selectOption("dracula");
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dracula");
-    await expect(pack).toHaveAttribute("href", "/themes/dracula.css");
+    await expect(pack).toHaveAttribute("href", "themes/dracula.css");
 
     await page.locator("#theme-select").selectOption("system");
     await expect(page.locator("html")).toHaveAttribute("data-theme", "system");
-    await expect(pack).toHaveAttribute("href", "/themes/system.css");
+    await expect(pack).toHaveAttribute("href", "themes/system.css");
   });
 
   test("computer focus claim wait release", async ({ page }) => {

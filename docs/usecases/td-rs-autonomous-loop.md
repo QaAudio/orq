@@ -10,9 +10,10 @@ dashboard) bend to a real consumer. Loop Meta policy and roadmap law live in
 
 ## Watch this board
 
-After the PorqDemo0–2 visualization wave (now Closed; program stop is valid),
-the `tdrs-loop` workspace still tells the story on
-[`porq dash serve --port 9847`](http://127.0.0.1:9847/).
+**Public (observe-only):** [https://qaaudio.github.io/porq/demo/](https://qaaudio.github.io/porq/demo/) — real porq dashboard UI with a frozen `tdrs-loop` snapshot (no mutate). Regenerate locally with `cd web && npm run publish:demo`.
+
+**Local (live store):** after bootstrap, the same story on
+[`porq -w tdrs-loop dash serve --port 9847`](http://127.0.0.1:9847/).
 
 ![Canvases — loop health, roadmap, checks, review](../img/usecases/porq-demo-canvases.png)
 
@@ -24,7 +25,6 @@ first, CLI controls.
 
 _Details view._ Same live pulse strip; board/tasks/events for correlation when a
 canvas says “blocked” and you need the task id.
-
 ## How the story maps to primitives
 
 ```text

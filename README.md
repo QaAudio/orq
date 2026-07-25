@@ -25,7 +25,7 @@ share across machines   →  + --remote (Turso/libSQL)
   <img src="docs/img/usecases/porq-demo-canvases.png" alt="porq Canvases — td-rs loop health, roadmap, checks, review" width="920" />
 </p>
 
-<p align="center"><sub><strong>Real consumer board</strong> — Canvases from the td-rs autonomous-loop workspace (<code>tdrs-loop</code>). Health green, roadmap on handoff, review veto visible. Default theme. <a href="docs/usecases/td-rs-autonomous-loop.md">Full walkthrough</a> · <a href="docs/img/usecases/porq-demo-details.png">Details view</a> · <a href="docs/img/usecases/porq-demo-dracula.png">dracula still</a></sub></p>
+<p align="center"><sub><strong>Real consumer board</strong> — Canvases from the td-rs autonomous-loop workspace (<code>tdrs-loop</code>). Health green, roadmap on handoff, review veto visible. Default theme. <a href="https://qaaudio.github.io/porq/demo/"><strong>Live demo</strong></a> (observe-only) · <a href="docs/usecases/td-rs-autonomous-loop.md">Full walkthrough</a> · <a href="docs/img/usecases/porq-demo-details.png">Details view</a> · <a href="docs/img/usecases/porq-demo-dracula.png">dracula still</a></sub></p>
 
 <p align="center">
   <img src="docs/img/dashboard.gif" alt="porq dashboard — Canvases and Details views" width="920" />
@@ -67,9 +67,18 @@ Related ideas: Pueue, Temporal, Restate, Taskwarrior, Hatchet.
 Concrete consumer walkthrough (leases, checks, review veto, human-gated
 roadmap proposals — domain scripts stay outside porq core):
 
+- **[Live demo](https://qaaudio.github.io/porq/demo/)** — real dashboard UI + frozen `tdrs-loop` snapshot (observe-only)
 - [td-rs autonomous loop](docs/usecases/td-rs-autonomous-loop.md)
 - Screenshots: [`docs/img/usecases/`](docs/img/usecases/)
 
+Regen the Pages payload after UI or fixture changes:
+
+```bash
+cargo build --release -p orq
+cd web && npm run publish:demo
+```
+
+That copies [`web/dashboard/`](web/dashboard/) into [`docs/demo/`](docs/demo/) and writes a deterministic `data.json`. GitHub Pages must serve **`/docs`** from `main` (one-time repo setting).
 ---
 
 ## Install
@@ -292,6 +301,8 @@ Executable patterns in [`recipes/`](recipes/):
 ## Live dashboard
 
 Static UI in [`web/dashboard/`](web/dashboard/), served over **HTTP** (not `file://`).
+
+**Public observe-only demo:** [qaaudio.github.io/porq/demo/](https://qaaudio.github.io/porq/demo/) — same UI as local dash, frozen `tdrs-loop` snapshot (`static_demo`). Computer-focus Claim/Wait/Release are disabled there. Regenerate with `cd web && npm run publish:demo`.
 
 ```bash
 porq dash snapshot                 # → $ORQ_DATA_DIR/dash/data.json

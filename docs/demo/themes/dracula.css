@@ -1,0 +1,31 @@
+/* porq theme: dracula — classic dark palette mapped to semantic tokens */
+:root {
+  --bg: #282a36;
+  --bg-wash: #21222c;
+  --panel: #343746;
+  --panel-elev: #44475a;
+  --border: #6272a4;
+  --border-soft: #44475a;
+  --text: #f8f8f2;
+  --muted: #bd93f9;
+  --accent: #ffb86c;
+  --accent-dim: #ffb86c33;
+  --ok: #50fa7b;
+  --ok-dim: #50fa7b33;
+  --warn: #f1fa8c;
+  --warn-dim: #f1fa8c33;
+  --danger: #ff5555;
+  --danger-dim: #ff555533;
+  --info: #8be9fd;
+  --info-dim: #8be9fd33;
+  --proposed: #bd93f9;
+  --proposed-dim: #bd93f933;
+  --approved: #50fa7b;
+  --approved-dim: #50fa7b33;
+  --font-display: system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "Segoe UI Mono", Consolas, monospace;
+  --radius: 8px;
+  --gap: 0.85rem;
+  --scroll-thumb: #6272a4;
+  --scroll-thumb-hover: color-mix(in srgb, var(--accent) 40%, #6272a4);
+}
