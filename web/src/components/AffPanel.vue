@@ -8,20 +8,6 @@ defineProps<{ focused?: boolean }>();
 const emit = defineEmits<{ "focus-panel": [] }>();
 const store = inject("dash") as DashStore;
 const aff = computed(() => asArray(store.snapshot.value?.affinities));
-const wrapStyle = computed(() => ({ maxHeight: (store.panelHeights.aff || 260) + "px" }));
-
-function onResizeDown(e: PointerEvent) {
-  e.preventDefault();
-  const startY = e.clientY;
-  const startH = store.panelHeights.aff || 260;
-  const onMove = (ev: PointerEvent) => store.setPanelHeight("aff", startH + (ev.clientY - startY));
-  const onUp = () => {
-    document.removeEventListener("pointermove", onMove);
-    document.removeEventListener("pointerup", onUp);
-  };
-  document.addEventListener("pointermove", onMove);
-  document.addEventListener("pointerup", onUp);
-}
 </script>
 
 <template>
@@ -36,9 +22,9 @@ function onResizeDown(e: PointerEvent) {
     <template #header>
       <span class="count" id="count-aff">{{ aff.length }}</span>
     </template>
-    <div id="aff">
+    <div id="aff" class="panel-fill scroll-themed">
       <p v-if="!aff.length" class="placeholder">none</p>
-      <div v-else class="table-wrap" :style="wrapStyle">
+      <div v-else class="table-wrap">
         <table>
           <thead>
             <tr>
@@ -59,6 +45,5 @@ function onResizeDown(e: PointerEvent) {
         </table>
       </div>
     </div>
-    <div class="panel-resize-y" data-height-panel="aff" @pointerdown="onResizeDown" />
   </QaPanel>
 </template>

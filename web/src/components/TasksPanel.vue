@@ -2,7 +2,6 @@
 import { computed, inject } from "vue";
 import { QaPanel } from "@quantumaudio/ableton-extension-sdk/vue";
 import type { DashStore } from "@/composables/useDashStore";
-import { DEFAULT_PANEL_HEIGHTS } from "@/composables/useDashStore";
 import { asArray } from "@/lib/format";
 import StatusBadge from "./StatusBadge.vue";
 
@@ -11,29 +10,9 @@ const emit = defineEmits<{ "focus-panel": [] }>();
 const store = inject("dash") as DashStore;
 
 const tasks = computed(() => asArray(store.snapshot.value?.tasks));
-const wrapStyle = computed(() => ({ maxHeight: (store.panelHeights.tasks || 260) + "px" }));
 
 function open(id?: string) {
   if (id) store.drawerTaskId.value = id;
-}
-
-function onResizeDown(e: PointerEvent) {
-  e.preventDefault();
-  const startY = e.clientY;
-  const startH = store.panelHeights.tasks || 260;
-  const onMove = (ev: PointerEvent) => store.setPanelHeight("tasks", startH + (ev.clientY - startY));
-  const onUp = () => {
-    document.removeEventListener("pointermove", onMove);
-    document.removeEventListener("pointerup", onUp);
-  };
-  document.addEventListener("pointermove", onMove);
-  document.addEventListener("pointerup", onUp);
-}
-
-function onHeadDblClick() {
-  const base = DEFAULT_PANEL_HEIGHTS.tasks;
-  const cur = store.panelHeights.tasks || base;
-  store.setPanelHeight("tasks", cur >= base * 1.8 ? base : Math.round(base * 2.2));
 }
 </script>
 
@@ -47,11 +26,11 @@ function onHeadDblClick() {
     @focusin="emit('focus-panel')"
   >
     <template #header>
-      <span class="count" id="count-tasks" @dblclick="onHeadDblClick">{{ tasks.length }}</span>
+      <span class="count" id="count-tasks">{{ tasks.length }}</span>
     </template>
-    <div id="tasks">
+    <div id="tasks" class="panel-fill scroll-themed">
       <p v-if="!tasks.length" class="placeholder">none</p>
-      <div v-else class="table-wrap" :style="wrapStyle">
+      <div v-else class="table-wrap">
         <table>
           <thead>
             <tr>
@@ -84,6 +63,5 @@ function onHeadDblClick() {
         </table>
       </div>
     </div>
-    <div class="panel-resize-y" data-height-panel="tasks" @pointerdown="onResizeDown" />
   </QaPanel>
 </template>

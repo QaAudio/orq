@@ -42,25 +42,6 @@ const data = computed(() => {
     models: asArray(d.models).slice(0, 12),
   };
 });
-
-const bodyStyle = computed(() => ({
-  maxHeight: (store.panelHeights["ops-health"] || 320) + "px",
-  overflow: "auto",
-}));
-
-function onResizeDown(e: PointerEvent) {
-  e.preventDefault();
-  const startY = e.clientY;
-  const startH = store.panelHeights["ops-health"] || 320;
-  const onMove = (ev: PointerEvent) =>
-    store.setPanelHeight("ops-health", startH + (ev.clientY - startY));
-  const onUp = () => {
-    document.removeEventListener("pointermove", onMove);
-    document.removeEventListener("pointerup", onUp);
-  };
-  document.addEventListener("pointermove", onMove);
-  document.addEventListener("pointerup", onUp);
-}
 </script>
 
 <template>
@@ -72,7 +53,7 @@ function onResizeDown(e: PointerEvent) {
     data-height-panel="ops-health"
     @focusin="emit('focus-panel')"
   >
-    <div id="ops-health" :style="bodyStyle">
+    <div id="ops-health" class="panel-fill scroll-themed">
       <div class="ops-grid">
         <div class="ops-card">
           <div class="ops-label">Daemon</div>
@@ -208,6 +189,5 @@ function onResizeDown(e: PointerEvent) {
         </div>
       </div>
     </div>
-    <div class="panel-resize-y" data-height-panel="ops-health" @pointerdown="onResizeDown" />
   </QaPanel>
 </template>

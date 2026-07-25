@@ -1,75 +1,51 @@
 <script setup lang="ts">
-import { computed, inject, onMounted, ref } from "vue";
+import { computed, inject, ref, type Component } from "vue";
 import type { DashStore } from "@/composables/useDashStore";
-import DockHost from "./DockHost.vue";
+import type { PanelId } from "@/lib/types";
+import { DETAILS_PANEL_IDS } from "@/lib/canvasGrid";
+import CanvasGridHost from "./CanvasGridHost.vue";
+import OpsHealth from "./OpsHealth.vue";
+import RunningTasksPanel from "./RunningTasksPanel.vue";
+import BoardPanel from "./BoardPanel.vue";
+import TasksPanel from "./TasksPanel.vue";
+import JobsPanel from "./JobsPanel.vue";
+import AffPanel from "./AffPanel.vue";
+import EventsPanel from "./EventsPanel.vue";
+import FilesPanel from "./FilesPanel.vue";
 
 const store = inject("dash") as DashStore;
-const detailsEl = ref<HTMLElement | null>(null);
 const focused = ref<string | null>(null);
 
-const colStyle = computed(() => ({
-  "--details-col-left": store.detailsColLeftPct.value + "%",
-  "--details-col-right": 100 - store.detailsColLeftPct.value + "%",
-  "--details-split-pct": store.detailsColLeftPct.value + "%",
-}));
+const PANEL_MAP: Record<PanelId, Component> = {
+  "ops-health": OpsHealth,
+  "running-tasks": RunningTasksPanel,
+  board: BoardPanel,
+  tasks: TasksPanel,
+  jobs: JobsPanel,
+  aff: AffPanel,
+  events: EventsPanel,
+  files: FilesPanel,
+};
 
-function onSplitterDown(e: PointerEvent) {
-  if (window.matchMedia("(max-width: 900px)").matches) return;
-  e.preventDefault();
-  const el = detailsEl.value;
-  if (!el) return;
-  const splitter = e.currentTarget as HTMLElement;
-  splitter.classList.add("dragging");
-  const onMove = (ev: PointerEvent) => {
-    const rect = el.getBoundingClientRect();
-    if (rect.width <= 0) return;
-    store.applyCols(((ev.clientX - rect.left) / rect.width) * 100);
-  };
-  const onUp = () => {
-    splitter.classList.remove("dragging");
-    document.removeEventListener("pointermove", onMove);
-    document.removeEventListener("pointerup", onUp);
-  };
-  document.addEventListener("pointermove", onMove);
-  document.addEventListener("pointerup", onUp);
-}
-
-function onSplitterKey(e: KeyboardEvent) {
-  if (window.matchMedia("(max-width: 900px)").matches) return;
-  if (e.key === "ArrowLeft") {
-    e.preventDefault();
-    store.applyCols(store.detailsColLeftPct.value - 2);
-  } else if (e.key === "ArrowRight") {
-    e.preventDefault();
-    store.applyCols(store.detailsColLeftPct.value + 2);
-  }
-}
-
-onMounted(() => {
-  /* layout prefs already loaded in store */
-});
+const keys = computed(() => [...DETAILS_PANEL_IDS]);
 </script>
 
 <template>
   <main
     id="view-details"
-    ref="detailsEl"
     class="view"
     :class="{ active: store.view.value === 'details' }"
     role="tabpanel"
-    :style="colStyle"
   >
-    <button
-      type="button"
-      class="details-col-splitter"
-      id="details-col-splitter"
-      role="separator"
-      aria-orientation="vertical"
-      aria-label="Resize Details columns"
-      tabindex="0"
-      @pointerdown="onSplitterDown"
-      @keydown="onSplitterKey"
-    />
-    <DockHost v-model:focused="focused" />
+    <CanvasGridHost :keys="keys" surface="details">
+      <template #default="{ canvasKey }">
+        <component
+          :is="PANEL_MAP[canvasKey as PanelId]"
+          v-if="PANEL_MAP[canvasKey as PanelId]"
+          :focused="focused === canvasKey"
+          @focus-panel="focused = canvasKey"
+        />
+      </template>
+    </CanvasGridHost>
   </main>
 </template>

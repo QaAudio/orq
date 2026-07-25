@@ -48,7 +48,7 @@ function clear() {
     <template #header>
       <span class="count" id="count-running-tasks">{{ store.runningTasks.value.length }}</span>
     </template>
-    <div id="running-tasks">
+    <div id="running-tasks" class="panel-fill scroll-themed">
       <p v-if="!store.runningTasks.value.length" class="placeholder">No running tasks</p>
       <div v-else class="running-strip">
         <button

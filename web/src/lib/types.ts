@@ -46,18 +46,6 @@ export type PanelId =
   | "events"
   | "files";
 
-export type DockLeaf = {
-  tabs: PanelId[];
-  active: number;
-  height: number;
-};
-
-export type DockLayout = {
-  v: 1;
-  colSplitPct: number;
-  columns: [DockLeaf[], DockLeaf[]];
-};
-
 export type JobRow = {
   id?: string;
   name?: string;

@@ -153,12 +153,12 @@ test.describe("porq dashboard", () => {
     await expect(page.locator("#tasks")).toContainText("e2e-task");
     await expect(page.locator("#error")).not.toHaveClass(/visible/);
     await expect(page.locator("#events .event-row").first()).toBeVisible();
-    await expect(page.locator("#details-col-splitter")).toBeVisible();
-    await expect(page.locator(".dock-host")).toBeVisible();
+    await expect(page.locator('#view-details .canvas-grid[data-grid-surface="details"]')).toBeVisible();
+    await expect(page.locator('#view-details .canvas-grid-cell[data-canvas-key="board"]')).toBeVisible();
     await expect(page.locator("#running-tasks")).toBeVisible();
   });
 
-  test("TimeBadge cycle + running task highlight + dock persist", async ({ page }) => {
+  test("TimeBadge cycle + running task highlight + details grid persist", async ({ page }) => {
     await page.addInitScript(() => {
       try {
         localStorage.setItem("porq.dash.view", "details");
@@ -173,6 +173,7 @@ test.describe("porq dashboard", () => {
       localStorage.removeItem("porq.dash.time.format");
       localStorage.removeItem("porq.dash.time.formats");
       localStorage.removeItem("porq.dash.layout.dock");
+      localStorage.removeItem("porq.dash.layout.details");
     });
     await page.reload();
     await expect(page.locator("#stamp")).not.toHaveText("connecting…", { timeout: 10_000 });
@@ -220,30 +221,16 @@ test.describe("porq dashboard", () => {
     await expect(page.locator("[data-testid=running-inspector]")).toBeVisible();
     await expect(page.locator("#board tr.related-to-selection")).toContainText("alpha");
 
-    await page.evaluate(() => {
-      const layout = {
-        v: 1,
-        colSplitPct: 54.5,
-        columns: [
-          [
-            { tabs: ["ops-health"], active: 0, height: 320 },
-            { tabs: ["jobs"], active: 0, height: 260 },
-            { tabs: ["events"], active: 0, height: 300 },
-          ],
-          [
-            { tabs: ["running-tasks"], active: 0, height: 220 },
-            { tabs: ["tasks", "board"], active: 1, height: 260 },
-            { tabs: ["aff"], active: 0, height: 260 },
-            { tabs: ["files"], active: 0, height: 180 },
-          ],
-        ],
-      };
-      localStorage.setItem("porq.dash.layout.dock", JSON.stringify(layout));
-    });
-    await page.reload();
-    await expect(page.locator("#stamp")).not.toHaveText("connecting…", { timeout: 10_000 });
-    await expect(page.locator(".dock-leaf .dock-tabs")).toBeVisible();
-    await expect(page.locator('.dock-tab[data-panel-tab="board"]')).toBeVisible();
+    await expect
+      .poll(async () =>
+        page.evaluate(() => {
+          const raw = localStorage.getItem("porq.dash.layout.details");
+          if (!raw) return false;
+          const layout = JSON.parse(raw) as { items?: Record<string, unknown> };
+          return !!(layout.items && layout.items.board && layout.items.events);
+        })
+      )
+      .toBe(true);
   });
 
   test("theme picker sets data-qa-theme", async ({ page }) => {
@@ -267,15 +254,25 @@ test.describe("porq dashboard", () => {
     await expect(page.locator("html")).toHaveAttribute("data-qa-theme", "dark");
   });
 
-  test("canvas grid edge resize persists", async ({ page }) => {
-    await page.addInitScript(() => {
+  test("canvas grid edge resize persists and reflows neighbors", async ({ page }) => {
+    const controlled = {
+      v: 1,
+      cols: 12,
+      rowHeight: 48,
+      items: {
+        plan: { x: 0, y: 0, w: 6, h: 4 },
+        render: { x: 0, y: 4, w: 6, h: 4 },
+        mystery: { x: 6, y: 0, w: 6, h: 4 },
+      },
+    };
+    await page.addInitScript((layout) => {
       try {
-        localStorage.removeItem("porq.dash.layout.canvases");
+        localStorage.setItem("porq.dash.layout.canvases", JSON.stringify(layout));
         localStorage.removeItem("porq.dash.view");
       } catch {
         /* ignore */
       }
-    });
+    }, controlled);
     await page.goto(baseURL + "/");
     await expect(page.locator("#stamp")).not.toHaveText("connecting…", { timeout: 10_000 });
     await expect(page.locator("#view-canvases")).toHaveClass(/active/);
@@ -286,54 +283,190 @@ test.describe("porq dashboard", () => {
     expect(box).toBeTruthy();
     await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
     await page.mouse.down();
-    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2 + 120, { steps: 8 });
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2 + 160, { steps: 8 });
     await page.mouse.up();
     await expect
       .poll(async () => {
         return page.evaluate(() => {
           const raw = localStorage.getItem("porq.dash.layout.canvases");
-          if (!raw) return 0;
-          const layout = JSON.parse(raw) as { items?: { plan?: { h?: number } } };
-          return layout.items?.plan?.h ?? 0;
+          if (!raw) return null;
+          const layout = JSON.parse(raw) as {
+            items?: Record<string, { x: number; y: number; w: number; h: number }>;
+          };
+          const items = layout.items || {};
+          const plan = items.plan;
+          const render = items.render;
+          if (!plan || !render) return null;
+          const keys = Object.keys(items);
+          for (let i = 0; i < keys.length; i++) {
+            for (let j = i + 1; j < keys.length; j++) {
+              const a = items[keys[i]!];
+              const b = items[keys[j]!];
+              if (!a || !b) continue;
+              const overlap =
+                a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+              if (overlap) return { ok: false, reason: "overlap" };
+            }
+          }
+          return {
+            ok: plan.h > 4 && render.y >= plan.y + plan.h,
+            planH: plan.h,
+            renderY: render.y,
+          };
         });
       })
-      .toBeGreaterThan(6);
+      .toMatchObject({ ok: true });
   });
 
-  test("dock leaf edge resize persists", async ({ page }) => {
-    await page.addInitScript(() => {
+  test("canvas title drag moves panel and persists", async ({ page }) => {
+    const controlled = {
+      v: 1,
+      cols: 12,
+      rowHeight: 48,
+      items: {
+        plan: { x: 0, y: 0, w: 6, h: 4 },
+        render: { x: 6, y: 0, w: 6, h: 4 },
+        mystery: { x: 0, y: 4, w: 6, h: 4 },
+      },
+    };
+    await page.addInitScript((layout) => {
       try {
-        localStorage.setItem("porq.dash.view", "details");
-        localStorage.removeItem("porq.dash.layout.dock");
+        localStorage.setItem("porq.dash.layout.canvases", JSON.stringify(layout));
+        localStorage.removeItem("porq.dash.view");
       } catch {
         /* ignore */
       }
-    });
+    }, controlled);
     await page.goto(baseURL + "/");
     await expect(page.locator("#stamp")).not.toHaveText("connecting…", { timeout: 10_000 });
-    await expect(page.locator("#view-details")).toHaveClass(/active/);
-    const leaf = page.locator('[data-dock-col="0"] [data-dock-leaf="0"]');
-    await expect(leaf).toBeVisible();
-    const before = await leaf.evaluate((el) =>
-      parseInt(getComputedStyle(el).getPropertyValue("--dock-leaf-height"), 10)
-    );
-    const handle = leaf.locator("[data-dock-resize]");
-    const box = await handle.boundingBox();
+    const cell = page.locator('.canvas-grid-cell[data-canvas-key="plan"]');
+    const title = cell.locator(".qa-panel__header .qa-label__text").first();
+    await expect(title).toBeVisible();
+    const box = await title.boundingBox();
     expect(box).toBeTruthy();
     await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
     await page.mouse.down();
-    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2 + 80, { steps: 6 });
+    await page.mouse.move(box!.x + box!.width / 2 + 280, box!.y + box!.height / 2 + 220, {
+      steps: 10,
+    });
     await page.mouse.up();
     await expect
       .poll(async () => {
         return page.evaluate(() => {
-          const raw = localStorage.getItem("porq.dash.layout.dock");
-          if (!raw) return 0;
-          const layout = JSON.parse(raw) as { columns?: { height?: number }[][] };
-          return layout.columns?.[0]?.[0]?.height ?? 0;
+          const raw = localStorage.getItem("porq.dash.layout.canvases");
+          if (!raw) return null;
+          const layout = JSON.parse(raw) as {
+            items?: Record<string, { x: number; y: number; w: number; h: number }>;
+          };
+          const plan = layout.items?.plan;
+          if (!plan) return null;
+          return { moved: plan.x !== 0 || plan.y !== 0, x: plan.x, y: plan.y };
         });
       })
-      .toBeGreaterThan(before);
+      .toMatchObject({ moved: true });
+
+    // Body click must not drag
+    const before = await page.evaluate(() => {
+      const raw = localStorage.getItem("porq.dash.layout.canvases");
+      return raw ? JSON.parse(raw).items.plan : null;
+    });
+    const body = cell.locator(".canvas-body").first();
+    const bodyBox = await body.boundingBox();
+    if (bodyBox) {
+      await page.mouse.move(bodyBox.x + 20, bodyBox.y + 20);
+      await page.mouse.down();
+      await page.mouse.move(bodyBox.x + 120, bodyBox.y + 80, { steps: 4 });
+      await page.mouse.up();
+    }
+    const after = await page.evaluate(() => {
+      const raw = localStorage.getItem("porq.dash.layout.canvases");
+      return raw ? JSON.parse(raw).items.plan : null;
+    });
+    expect(after).toEqual(before);
+  });
+
+  test("details grid resize persists; legacy dock migrates", async ({ page }) => {
+    const detailsLayout = {
+      v: 1,
+      cols: 12,
+      rowHeight: 48,
+      items: {
+        "ops-health": { x: 0, y: 0, w: 6, h: 5 },
+        "running-tasks": { x: 6, y: 0, w: 6, h: 5 },
+        board: { x: 0, y: 5, w: 6, h: 5 },
+        tasks: { x: 6, y: 5, w: 6, h: 5 },
+        jobs: { x: 0, y: 10, w: 6, h: 5 },
+        aff: { x: 6, y: 10, w: 6, h: 5 },
+        events: { x: 0, y: 15, w: 6, h: 5 },
+        files: { x: 6, y: 15, w: 6, h: 5 },
+      },
+    };
+    await page.addInitScript((layout) => {
+      try {
+        localStorage.setItem("porq.dash.view", "details");
+        localStorage.setItem("porq.dash.layout.details", JSON.stringify(layout));
+        localStorage.removeItem("porq.dash.layout.dock");
+      } catch {
+        /* ignore */
+      }
+    }, detailsLayout);
+    await page.goto(baseURL + "/");
+    await expect(page.locator("#stamp")).not.toHaveText("connecting…", { timeout: 10_000 });
+    await expect(page.locator("#view-details")).toHaveClass(/active/);
+    const cell = page.locator('#view-details .canvas-grid-cell[data-canvas-key="board"]');
+    await expect(cell).toBeVisible();
+    const handle = cell.locator('[data-canvas-resize="s"]');
+    const box = await handle.boundingBox();
+    expect(box).toBeTruthy();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2 + 100, { steps: 6 });
+    await page.mouse.up();
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          const raw = localStorage.getItem("porq.dash.layout.details");
+          if (!raw) return 0;
+          const layout = JSON.parse(raw) as { items?: { board?: { h?: number } } };
+          return layout.items?.board?.h ?? 0;
+        });
+      })
+      .toBeGreaterThan(5);
+
+    // Legacy dock migration: clear details, seed dock, reload
+    await page.evaluate(() => {
+      localStorage.removeItem("porq.dash.layout.details");
+      localStorage.setItem(
+        "porq.dash.layout.dock",
+        JSON.stringify({
+          v: 1,
+          colSplitPct: 54.5,
+          columns: [
+            [
+              { tabs: ["ops-health"], active: 0, height: 320 },
+              { tabs: ["board"], active: 0, height: 260 },
+            ],
+            [
+              { tabs: ["running-tasks"], active: 0, height: 220 },
+              { tabs: ["tasks"], active: 0, height: 260 },
+            ],
+          ],
+        })
+      );
+    });
+    await page.reload();
+    await expect(page.locator("#stamp")).not.toHaveText("connecting…", { timeout: 10_000 });
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          const details = localStorage.getItem("porq.dash.layout.details");
+          const dock = localStorage.getItem("porq.dash.layout.dock");
+          if (!details || dock) return false;
+          const layout = JSON.parse(details) as { items?: Record<string, unknown> };
+          return !!(layout.items?.board && layout.items?.["ops-health"]);
+        });
+      })
+      .toBe(true);
   });
 
   test("computer focus claim wait release", async ({ page }) => {

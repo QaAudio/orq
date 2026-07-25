@@ -106,7 +106,12 @@ useMermaid(mermaidSource, store.qaTheme);
       </p>
       <p>Canvases are the primary view. Ops panels live under <strong>Details</strong>.</p>
     </div>
-    <CanvasGridHost v-else :keys="visibleKeys" :span2-for-key="span2ForKey">
+    <CanvasGridHost
+      v-else
+      :keys="visibleKeys"
+      surface="canvases"
+      :span2-for-key="span2ForKey"
+    >
       <template #default="{ canvasKey }">
         <CanvasCard
           v-if="cardByKey.get(canvasKey)"

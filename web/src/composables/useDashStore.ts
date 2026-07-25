@@ -1,5 +1,5 @@
 import { computed, onMounted, onUnmounted, reactive, ref } from "vue";
-import type { DashSnapshot, DockLayout, FilterMode, PanelId } from "@/lib/types";
+import type { DashSnapshot, FilterMode } from "@/lib/types";
 import type { TimeFormatMode } from "@/lib/format";
 import {
   asArray,
@@ -10,17 +10,13 @@ import {
 } from "@/lib/format";
 import {
   DEFAULT_PANEL_HEIGHTS,
-  applyDockDrag,
-  defaultDockLayout,
-  migrateDockFromLegacy,
-  normalizeDockLayout,
-  type DockDropTarget,
-} from "@/lib/dock";
-import {
   defaultCanvasGridLayout,
+  defaultDetailsGridLayout,
+  DETAILS_PANEL_IDS,
+  migrateDockToDetailsGrid,
   normalizeCanvasGridLayout,
   reconcileCanvasItems,
-  resizeCanvasItem,
+  applyItemChange,
   type CanvasGridItem,
   type CanvasGridLayout,
 } from "@/lib/canvasGrid";
@@ -32,10 +28,10 @@ export const LOG_TAIL_BYTES = 8192;
 const VIEW_KEY = "porq.dash.view";
 const FILTER_KEY = "porq.dash.filter.state";
 const THEME_KEY = "porq.dash.qa-theme";
-const LAYOUT_COLS_KEY = "porq.dash.layout.cols";
-const LAYOUT_HEIGHTS_KEY = "porq.dash.layout.heights";
+/** @deprecated migrated into details grid */
 const LAYOUT_DOCK_KEY = "porq.dash.layout.dock";
 const LAYOUT_CANVASES_KEY = "porq.dash.layout.canvases";
+const LAYOUT_DETAILS_KEY = "porq.dash.layout.details";
 const TIME_FORMATS_KEY = "porq.dash.time.formats";
 /** @deprecated migrated once into TIME_FORMATS_KEY default seed */
 const TIME_FORMAT_LEGACY_KEY = "porq.dash.time.format";
@@ -73,10 +69,8 @@ export function useDashStore() {
   const userPickedView = ref(false);
   const filterMode = ref<FilterMode>("active");
   const qaTheme = ref<"dark" | "light">("dark");
-  const detailsColLeftPct = ref(54.5);
-  const panelHeights = reactive<Record<string, number>>({ ...DEFAULT_PANEL_HEIGHTS });
-  const dockLayout = ref<DockLayout>(defaultDockLayout());
   const canvasGrid = ref<CanvasGridLayout>(defaultCanvasGridLayout());
+  const detailsGrid = ref<CanvasGridLayout>(defaultDetailsGridLayout());
   /** Per-badge modes; unknown ids fall back to timeFormatDefault (relative unless legacy migrated). */
   const timeFormats = ref<Record<string, TimeFormatMode>>({});
   const timeFormatDefault = ref<TimeFormatMode>("relative");
@@ -106,21 +100,6 @@ export function useDashStore() {
     const task = asArray(snapshot.value.tasks).find((t) => t.id === id);
     return relatedForTask(snapshot.value, id, asArray(task?.claims)).leaseKeys;
   });
-
-  function persistDock() {
-    saveJson(LAYOUT_DOCK_KEY, dockLayout.value);
-    detailsColLeftPct.value = dockLayout.value.colSplitPct;
-    saveJson(LAYOUT_COLS_KEY, { left: detailsColLeftPct.value });
-    const heights: Record<string, number> = {};
-    for (const col of dockLayout.value.columns) {
-      for (const leaf of col) {
-        const id = leaf.tabs[leaf.active] || leaf.tabs[0];
-        if (id) heights[id] = leaf.height;
-      }
-    }
-    Object.assign(panelHeights, heights);
-    saveJson(LAYOUT_HEIGHTS_KEY, { ...panelHeights });
-  }
 
   function applyTheme(theme: "dark" | "light") {
     qaTheme.value = theme;
@@ -168,57 +147,12 @@ export function useDashStore() {
     saveJson(TIME_FORMATS_KEY, timeFormats.value);
   }
 
-  function applyCols(pct: number) {
-    const clamped = Math.max(20, Math.min(80, pct));
-    detailsColLeftPct.value = clamped;
-    dockLayout.value = { ...dockLayout.value, colSplitPct: clamped };
-    persistDock();
-  }
-
-  function setPanelHeight(id: string, h: number) {
-    const height = Math.max(120, Math.min(720, h));
-    panelHeights[id] = height;
-    const next = {
-      ...dockLayout.value,
-      columns: dockLayout.value.columns.map((col) =>
-        col.map((leaf) =>
-          leaf.tabs.includes(id as PanelId) ? { ...leaf, height } : leaf
-        )
-      ) as DockLayout["columns"],
-    };
-    dockLayout.value = next;
-    persistDock();
-  }
-
-  function setLeafHeight(col: 0 | 1, leafIndex: number, h: number) {
-    const height = Math.max(120, Math.min(720, h));
-    const cols = dockLayout.value.columns.map((c) => c.map((l) => ({ ...l, tabs: [...l.tabs] }))) as DockLayout["columns"];
-    const leaf = cols[col][leafIndex];
-    if (!leaf) return;
-    leaf.height = height;
-    dockLayout.value = { ...dockLayout.value, columns: cols };
-    persistDock();
-  }
-
-  function setLeafActive(col: 0 | 1, leafIndex: number, active: number) {
-    const cols = dockLayout.value.columns.map((c) => c.map((l) => ({ ...l, tabs: [...l.tabs] }))) as DockLayout["columns"];
-    const leaf = cols[col][leafIndex];
-    if (!leaf) return;
-    leaf.active = Math.max(0, Math.min(leaf.tabs.length - 1, active));
-    dockLayout.value = { ...dockLayout.value, columns: cols };
-    persistDock();
-  }
-
-  function dockDrag(
-    from: { col: 0 | 1; leaf: number; tab: number },
-    target: DockDropTarget
-  ) {
-    dockLayout.value = applyDockDrag(dockLayout.value, from, target);
-    persistDock();
-  }
-
   function persistCanvasGrid() {
     saveJson(LAYOUT_CANVASES_KEY, canvasGrid.value);
+  }
+
+  function persistDetailsGrid() {
+    saveJson(LAYOUT_DETAILS_KEY, detailsGrid.value);
   }
 
   function reconcileCanvasGrid(keys: string[], span2ForKey: (key: string) => boolean) {
@@ -235,9 +169,48 @@ export function useDashStore() {
     persistCanvasGrid();
   }
 
+  function reconcileDetailsGrid() {
+    const keys = [...DETAILS_PANEL_IDS];
+    const next = reconcileCanvasItems(detailsGrid.value, keys, () => false);
+    const same =
+      Object.keys(next.items).length === Object.keys(detailsGrid.value.items).length &&
+      keys.every((k) => {
+        const a = next.items[k];
+        const b = detailsGrid.value.items[k];
+        return a && b && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
+      });
+    if (same) return;
+    detailsGrid.value = next;
+    persistDetailsGrid();
+  }
+
+  /** Live gesture update (push collisions, defer compact + persist). */
+  function previewCanvasGridItem(key: string, patch: Partial<CanvasGridItem>) {
+    canvasGrid.value = applyItemChange(canvasGrid.value, key, patch, { compact: false });
+  }
+
+  function previewDetailsGridItem(key: string, patch: Partial<CanvasGridItem>) {
+    detailsGrid.value = applyItemChange(detailsGrid.value, key, patch, { compact: false });
+  }
+
   function setCanvasGridItem(key: string, patch: Partial<CanvasGridItem>) {
-    canvasGrid.value = resizeCanvasItem(canvasGrid.value, key, patch);
+    canvasGrid.value = applyItemChange(canvasGrid.value, key, patch);
     persistCanvasGrid();
+  }
+
+  function setDetailsGridItem(key: string, patch: Partial<CanvasGridItem>) {
+    detailsGrid.value = applyItemChange(detailsGrid.value, key, patch);
+    persistDetailsGrid();
+  }
+
+  function replaceCanvasGrid(layout: CanvasGridLayout, persist = true) {
+    canvasGrid.value = layout;
+    if (persist) persistCanvasGrid();
+  }
+
+  function replaceDetailsGrid(layout: CanvasGridLayout, persist = true) {
+    detailsGrid.value = layout;
+    if (persist) persistDetailsGrid();
   }
 
   function selectTask(id: string | null) {
@@ -291,20 +264,23 @@ export function useDashStore() {
     }
     applyTheme(theme);
 
-    const cols = loadJson<{ left?: number } | null>(LAYOUT_COLS_KEY, null);
-    if (cols && typeof cols.left === "number") detailsColLeftPct.value = cols.left;
-    const heights = loadJson<Record<string, number> | null>(LAYOUT_HEIGHTS_KEY, null);
-    if (heights) Object.assign(panelHeights, DEFAULT_PANEL_HEIGHTS, heights);
-
-    const dockRaw = loadJson<unknown>(LAYOUT_DOCK_KEY, null);
-    if (dockRaw) {
-      dockLayout.value = normalizeDockLayout(dockRaw, detailsColLeftPct.value);
-    } else {
-      dockLayout.value = migrateDockFromLegacy(cols, heights);
-    }
-    detailsColLeftPct.value = dockLayout.value.colSplitPct;
-
     canvasGrid.value = normalizeCanvasGridLayout(loadJson<unknown>(LAYOUT_CANVASES_KEY, null));
+
+    const detailsRaw = loadJson<unknown>(LAYOUT_DETAILS_KEY, null);
+    if (detailsRaw) {
+      detailsGrid.value = normalizeCanvasGridLayout(detailsRaw, defaultDetailsGridLayout());
+    } else {
+      const dockRaw = loadJson<unknown>(LAYOUT_DOCK_KEY, null);
+      const migrated = migrateDockToDetailsGrid(dockRaw);
+      detailsGrid.value = migrated || defaultDetailsGridLayout();
+      persistDetailsGrid();
+      try {
+        if (dockRaw) localStorage.removeItem(LAYOUT_DOCK_KEY);
+      } catch {
+        /* ignore */
+      }
+    }
+    reconcileDetailsGrid();
   }
 
   function updateFreshness() {
@@ -396,10 +372,8 @@ export function useDashStore() {
     view,
     filterMode,
     qaTheme,
-    detailsColLeftPct,
-    panelHeights,
-    dockLayout,
     canvasGrid,
+    detailsGrid,
     timeFormats,
     timeFormatDefault,
     selectedTaskId,
@@ -415,13 +389,16 @@ export function useDashStore() {
     setView,
     setFilterMode,
     applyTheme,
-    applyCols,
-    setPanelHeight,
-    setLeafHeight,
-    setLeafActive,
-    dockDrag,
     reconcileCanvasGrid,
+    reconcileDetailsGrid,
+    previewCanvasGridItem,
+    previewDetailsGridItem,
     setCanvasGridItem,
+    setDetailsGridItem,
+    replaceCanvasGrid,
+    replaceDetailsGrid,
+    persistCanvasGrid,
+    persistDetailsGrid,
     selectTask,
     getTimeFormat,
     cycleTimeFormat,

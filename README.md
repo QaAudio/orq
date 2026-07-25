@@ -147,8 +147,11 @@ The Vue dashboard has two focused views:
 - **Canvases** — status, plans, diagrams, images, and operator controls.
 - **Details** — tasks, POIs, leases, triggers, models, jobs, and events.
 
-It supports dark and light themes, a resizable layout, and browser-local
-filters. Local mutation is deliberately narrow; roadmap and git actions remain
+Both views share a Grafana-style **12-column reactive grid**: drag a panel by
+its title to move it, resize from the edges, and neighbors push/compact so
+tiles never overlap. Layout prefs stay browser-local (`porq.dash.layout.canvases`
+/ `porq.dash.layout.details`). Dark and light themes and archived filters are
+supported. Local mutation is deliberately narrow; roadmap and git actions remain
 CLI-only.
 
 ```bash

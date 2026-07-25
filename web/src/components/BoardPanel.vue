@@ -2,7 +2,6 @@
 import { computed, inject } from "vue";
 import { QaPanel } from "@quantumaudio/ableton-extension-sdk/vue";
 import type { DashStore } from "@/composables/useDashStore";
-import { DEFAULT_PANEL_HEIGHTS } from "@/composables/useDashStore";
 import {
   asArray,
   archivedCount,
@@ -21,9 +20,6 @@ const store = inject("dash") as DashStore;
 const allBoard = computed(() => asArray(store.snapshot.value?.board));
 const rows = computed(() => filterArchivable(allBoard.value, store.filterMode.value));
 const hiddenArchived = computed(() => archivedCount(allBoard.value));
-const wrapStyle = computed(() => ({
-  maxHeight: (store.panelHeights.board || 260) + "px",
-}));
 
 function expandId(key?: string) {
   return "board:" + (key || "");
@@ -35,25 +31,6 @@ function onToggle(e: Event, key?: string) {
   const id = expandId(key);
   if (t.open) store.boardExpanded.add(id);
   else store.boardExpanded.delete(id);
-}
-
-function onResizeDown(e: PointerEvent) {
-  e.preventDefault();
-  const startY = e.clientY;
-  const startH = store.panelHeights.board || 260;
-  const onMove = (ev: PointerEvent) => store.setPanelHeight("board", startH + (ev.clientY - startY));
-  const onUp = () => {
-    document.removeEventListener("pointermove", onMove);
-    document.removeEventListener("pointerup", onUp);
-  };
-  document.addEventListener("pointermove", onMove);
-  document.addEventListener("pointerup", onUp);
-}
-
-function onHeadDblClick() {
-  const base = DEFAULT_PANEL_HEIGHTS.board;
-  const cur = store.panelHeights.board || base;
-  store.setPanelHeight("board", cur >= base * 1.8 ? base : Math.round(base * 2.2));
 }
 </script>
 
@@ -67,12 +44,12 @@ function onHeadDblClick() {
     @focusin="emit('focus-panel')"
   >
     <template #header>
-      <div class="panel-toolbar" @dblclick="onHeadDblClick">
+      <div class="panel-toolbar">
         <StateFilter />
         <span class="count" id="count-board">{{ rows.length }}</span>
       </div>
     </template>
-    <div id="board">
+    <div id="board" class="panel-fill scroll-themed">
       <p v-if="!rows.length" class="placeholder">
         <template v-if="!allBoard.length">empty</template>
         <template v-else>
@@ -82,7 +59,7 @@ function onHeadDblClick() {
           </template>
         </template>
       </p>
-      <div v-else class="table-wrap" :style="wrapStyle">
+      <div v-else class="table-wrap">
         <table>
           <thead>
             <tr>
@@ -126,11 +103,5 @@ function onHeadDblClick() {
         </table>
       </div>
     </div>
-    <div
-      class="panel-resize-y"
-      data-height-panel="board"
-      title="Drag to resize height"
-      @pointerdown="onResizeDown"
-    />
   </QaPanel>
 </template>
