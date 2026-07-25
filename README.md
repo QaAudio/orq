@@ -14,6 +14,10 @@ something actually happened.
 No Kubernetes required. No “platform team.” One binary, one SQLite file by
 default — or the same API pointed at Turso when you want the desk in the cloud.
 
+![orq live dashboard — board, tasks, jobs, event timeline](docs/img/dashboard.png)
+
+<p align="center"><sub>The real UI — <code>orq dash serve</code> on localhost, refreshed every second.</sub></p>
+
 ---
 
 ## What you get
@@ -55,32 +59,24 @@ powershell -ExecutionPolicy Bypass -File scripts/smoke.ps1
 
 ---
 
-## Quickstart cards
+## Quickstarts
 
-Pick a lane. Copy-paste. Feel the dopamine.
+Pick a lane, expand, copy-paste. Deeper plots live under [Possibilities](#possibilities--workflows) and [`recipes/`](recipes/).
 
-<table>
-<tr>
-<td width="50%" valign="top">
-
-### 🃏 Desk in 30 seconds
-
-Stand up a workspace, pin a note, run a task.
+<details>
+<summary><strong>Desk in 30 seconds</strong> — init, pin a note, run a task</summary>
 
 ```bash
 orq init
 orq poi table create notes --cols body:string:poi
 orq poi set notes hello '"world"' --tier ephemeral
 orq run --sync --name hi -- "echo hello from orq"
-orq status --json --limit 20
 ```
 
-</td>
-<td width="50%" valign="top">
+</details>
 
-### 🃏 Watch the pulse
-
-Snapshot + live dashboard on localhost.
+<details>
+<summary><strong>Watch the pulse</strong> — that’s the screenshot above</summary>
 
 ```bash
 orq dash snapshot
@@ -88,80 +84,54 @@ orq dash serve --port 9847
 # → http://127.0.0.1:9847/
 ```
 
-Refresh every second. Board, tasks, jobs, event
-timeline. Perfect for demos and “is it alive?”.
+</details>
 
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top">
-
-### 🃏 Teach Cursor about orq
-
-Drop a skill + AGENTS snippet into a host repo.
+<details>
+<summary><strong>Teach Cursor about orq</strong> — skill + AGENTS snippet</summary>
 
 ```bash
 orq integrate cursor --path /path/to/host/repo
 ```
 
-Agents then speak POI / claim / trigger instead of
-inventing their own coordination folklore.
+Agents then speak POI / claim / trigger instead of inventing folklore.
 
-</td>
-<td width="50%" valign="top">
+</details>
 
-### 🃏 Shared cloud desk
-
-Same CLI, Turso/libSQL backend. Opt-in only.
+<details>
+<summary><strong>Shared cloud desk</strong> — same CLI, Turso/libSQL (opt-in)</summary>
 
 ```bash
 cp .env.example .env   # fill ORQ_DB_URL + TOKEN
 orq --remote init
 orq --remote poi set board hello '{"msg":"shared"}'
-orq --remote poi get board hello
 ```
 
-Without `--remote` (or exported `ORQ_DB_*`), you
-stay local. A stray `.env` never hijacks you.
+Without `--remote`, you stay local. A stray `.env` never hijacks you.
 
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top">
+</details>
 
-### 🃏 Route models like a pit crew
-
-Affinity scores + Mixture-of-Agents.
+<details>
+<summary><strong>Route models like a pit crew</strong> — affinity + MoA</summary>
 
 ```bash
-orq model add fast   --cli "echo FAST:{cmd}"   --capability code
+orq model add fast --cli "echo FAST:{cmd}" --capability code
 orq model add strong --cli "echo STRONG:{cmd}" --capability code
 orq affinity set code.edit strong --score 0.9
-orq run --sync --class code.edit --strategy moa \
-  --moa-k 2 --moa-aggregator strong --seed 42 \
-  --name edit -- "propose"
-orq job report <id>
+orq run --sync --class code.edit --strategy moa --moa-k 2 --name edit -- "propose"
 ```
 
-</td>
-<td width="50%" valign="top">
+</details>
 
-### 🃏 Don’t collide on disk
-
-Claim globs for the lifetime of a task.
+<details>
+<summary><strong>Don’t collide on disk</strong> — path claims for a task</summary>
 
 ```bash
-orq run --sync --name refactor \
-  --claim "src/**" --claim "crates/foo/**" -- \
-  "cargo test -p foo"
+orq run --sync --name refactor --claim "src/**" -- "cargo test -p foo"
 ```
 
-Overlapping claims wait or fail closed — your
-call via leases, not vibes.
+Overlapping claims wait or fail closed — leases, not vibes.
 
-</td>
-</tr>
-</table>
+</details>
 
 ---
 
@@ -244,7 +214,7 @@ Executable patterns live in [`recipes/`](recipes/):
 
 ## Live dashboard
 
-First-class UI in [`web/dashboard/`](web/dashboard/), served over **HTTP** (not `file://`).
+That’s the real UI at the top of this README. Source lives in [`web/dashboard/`](web/dashboard/), served over **HTTP** (not `file://`).
 
 ```bash
 orq dash snapshot                 # → $ORQ_DATA_DIR/dash/data.json

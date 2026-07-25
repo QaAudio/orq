@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "test:e2e": "node e2e/seed.mjs && playwright test",
-    "test:e2e:headed": "node e2e/seed.mjs && playwright test --headed"
+    "test:e2e:headed": "node e2e/seed.mjs && playwright test --headed",
+    "capture:readme": "node e2e/capture-readme.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.51.0"
