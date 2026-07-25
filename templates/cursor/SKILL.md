@@ -27,14 +27,16 @@ Always pass `--limit` / `--fields` on list commands.
 ## Dashboard canvases
 Publish status for operators with `porq canvas set` (Canvases is the primary view; Details holds ops tables).
 
-Authoring rules (H1 + state word + next command + freshness; tables over dumps; inherit theme tokens): see porq `docs/canvas-authoring.md` (shipped with the porq repo).
+Authoring rules (H1 + state word + next command + freshness; tables over dumps; inherit theme tokens; optional ` ```mermaid ` fences): see porq `docs/canvas-authoring.md` (shipped with the porq repo).
 
 ```bash
 porq canvas set plan --md ./plan.md
 porq canvas set shot --image ./out.png
 porq dash serve --port 9847
-# optional theme: --theme dracula | --theme-file ./my.css  (env ORQ_DASH_THEME*)
+# optional theme: --theme dark|light  (env ORQ_DASH_THEME*)
 ```
+
+Details (observe-only): **Running tasks** correlates ACTIVE tasks to Board keys via `claims` and to leases via `holder`; TimeBadge is per-instance (default relative; `porq.dash.time.formats`); canvas bodies keep absolute UTC `Generated:` ISO (dash converts display — do not invent relative ages). Details **dock** / Canvases **12-col grid** are browser-local. UI chrome notes when present: host `reference/dashboard-ui.md`.
 
 Dash mutate is **scoped**: localhost POST `/api/v1/poi/{lock,unlock,steal,yield-request}`
 only for `computer/focus` (Claim / Wait / Release / Steal UI). Roadmap/git stay CLI-only.
@@ -54,7 +56,7 @@ porq --session "$ORQ_SESSION" gc
 ## Core primitives
 - **Workspace** — sandbox (`--workspace`, default `default`)
 - **POI** — lockable record in a table (`poi get/set/lock/steal`; `lock --wait --timeout-ms` polls)
-- **Canvas** — display POI in reserved `canvas` table (`canvas set/ls/rm`; kinds: markdown/image/url/html)
+- **Canvas** — display POI in reserved `canvas` table (`canvas set/ls/rm`; kinds: markdown/image/url/html; markdown may include Mermaid fences)
 - **Task** — supervised agent/process (`run/await/cancel/kill`)
 - **Trigger** — declarative rules (`trigger add` …)
 - **Model / Affinity / Job** — eval → seeded route → single|race|moa

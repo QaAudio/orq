@@ -22,16 +22,16 @@ share across machines   →  + --remote (Turso/libSQL)
 ```
 
 <p align="center">
-  <img src="docs/img/usecases/porq-demo-canvases.png" alt="porq Canvases — td-rs loop health, roadmap, checks, review" width="920" />
+  <img src="docs/img/dashboard.png" alt="porq Canvases — markdown + mermaid, theme-bridged HTML, image cards on Vue + SDK chrome" width="920" />
 </p>
 
-<p align="center"><sub><strong>Real consumer board</strong> — Canvases from the td-rs autonomous-loop workspace (<code>tdrs-loop</code>). Health green, roadmap on handoff, review veto visible. Default theme. <a href="https://qaaudio.github.io/porq/demo/"><strong>Live demo</strong></a> (observe-only) · <a href="docs/usecases/td-rs-autonomous-loop.md">Full walkthrough</a> · <a href="docs/img/usecases/porq-demo-details.png">Details view</a> · <a href="docs/img/usecases/porq-demo-dracula.png">dracula still</a></sub></p>
+<p align="center"><sub><strong>Feature showcase</strong> — markdown (tables + status shape), <strong>mermaid</strong> fences, HTML with theme-bridge CSS vars, and image cards. Shell is Vue 3 + Ableton Extension SDK (<code>QaButton</code> / <code>QaBadge</code> / theme picker). Dark theme. <a href="https://qaaudio.github.io/porq/demo/"><strong>Live demo</strong></a> (observe-only) · <a href="docs/img/dashboard-details.png">Details view</a> · <a href="docs/img/gallery/theme-light.png">light theme</a></sub></p>
 
 <p align="center">
   <img src="docs/img/dashboard.gif" alt="porq dashboard — Canvases and Details views" width="920" />
 </p>
 
-<p align="center"><sub>Seeded demo GIF: <strong>Canvases</strong> ↔ <strong>Details</strong>. <code>porq dash serve</code></sub></p>
+<p align="center"><sub>Seeded demo GIF: <strong>Canvases</strong> ↔ <strong>Details</strong>. Regen with <code>cd web &amp;&amp; npm run capture:readme</code>.</sub></p>
 
 ---
 
@@ -64,12 +64,13 @@ Related ideas: Pueue, Temporal, Restate, Taskwarrior, Hatchet.
 
 ### Showcase
 
-Concrete consumer walkthrough (leases, checks, review veto, human-gated
-roadmap proposals — domain scripts stay outside porq core):
+Feature stills (`dashboard.png` / GIF / theme+scale gallery) come from
+`cd web && npm run capture:readme`. A real consumer board (leases, checks,
+review veto, human-gated roadmap — domain scripts stay outside porq core):
 
 - **[Live demo](https://qaaudio.github.io/porq/demo/)** — real dashboard UI + frozen `tdrs-loop` snapshot (observe-only)
 - [td-rs autonomous loop](docs/usecases/td-rs-autonomous-loop.md)
-- Screenshots: [`docs/img/usecases/`](docs/img/usecases/)
+- Consumer screenshots: [`docs/img/usecases/`](docs/img/usecases/) ([Canvases](docs/img/usecases/porq-demo-canvases.png) · [Details](docs/img/usecases/porq-demo-details.png))
 
 Regen the Pages payload after UI or fixture changes:
 
@@ -78,7 +79,7 @@ cargo build --release -p orq
 cd web && npm run publish:demo
 ```
 
-That copies [`web/dashboard/`](web/dashboard/) into [`docs/demo/`](docs/demo/) and writes a deterministic `data.json`. GitHub Pages must serve **`/docs`** from `main` (one-time repo setting).
+That copies [`web/dashboard/dist/`](web/dashboard/dist/) into [`docs/demo/`](docs/demo/) and writes a deterministic `data.json`. GitHub Pages must serve **`/docs`** from `main` (one-time repo setting).
 ---
 
 ## Install
@@ -300,16 +301,23 @@ Executable patterns in [`recipes/`](recipes/):
 
 ## Live dashboard
 
-Static UI in [`web/dashboard/`](web/dashboard/), served over **HTTP** (not `file://`).
+Vue 3 + `@quantumaudio/ableton-extension-sdk` UI — sources in [`web/src/`](web/src/), build output in [`web/dashboard/dist/`](web/dashboard/dist/) (served by `dash serve`).
+
+- **Shell** — SDK primitives (`QaPanel`, `QaButton`, `QaBadge`, `QaSegmented`, `QaSelect`, `QaLed`). Canvas bodies never inject Vue/SDK components.
+- **Markdown canvases** — escape-first subset (headings, tables, lists, bold/code) plus fenced **`mermaid`** blocks (client-side, `securityLevel: 'strict'`, theme-inherited).
+- **HTML canvases** — sandboxed `srcdoc`; prefer theme-bridge CSS vars (`--text`, `--muted`, `--accent`, `--bg`, `--panel`, `--border`) — see [`docs/canvas-authoring.md`](docs/canvas-authoring.md).
+- **Layout** — Canvases sit on a **12-col grid** (`porq.dash.layout.canvases`); Details uses a resizable **dock** (`porq.dash.layout.dock`). Both are browser-local only.
+- **Filter** — Active / All / Archived (`porq.dash.filter.state`) applies to Canvases + Board.
 
 **Public observe-only demo:** [qaaudio.github.io/porq/demo/](https://qaaudio.github.io/porq/demo/) — same UI as local dash, frozen `tdrs-loop` snapshot (`static_demo`). Computer-focus Claim/Wait/Release are disabled there. Regenerate with `cd web && npm run publish:demo`.
 
 ```bash
-porq dash snapshot                 # → $ORQ_DATA_DIR/dash/data.json
-porq dash serve --port 9847        # static UI + /data.json (1s refresh)
+cd web && npm run build                # → dashboard/dist
+porq dash snapshot                     # → $ORQ_DATA_DIR/dash/data.json
+porq dash serve --port 9847            # dist UI + /data.json (1s refresh)
 ```
 
-Override static root with `--root` or `ORQ_DASH_ROOT`.
+Override static root with `--root` or `ORQ_DASH_ROOT` (defaults to `web/dashboard/dist`).
 
 Scoped mutate (localhost only): `POST /api/v1/poi/{lock,unlock,steal,yield-request}`
 for **`computer/focus`** — powers the Canvases **Computer focus** Claim/Wait/Release UI.
@@ -317,30 +325,25 @@ Roadmap / git / other POIs stay CLI-only.
 
 ### Themes (opt-in)
 
-Zero flags keeps the current warm-dark **default**. Optional packs: `dracula`, `system` (light + `prefers-color-scheme`).
+SDK `data-qa-theme`: **dark** (default) or **light**. Aliases: `default`/`dracula` → dark, `system` → light.
 
-- CLI: `porq dash serve --theme dracula` or `--theme-file ./my.css`
+- CLI: `porq dash serve --theme light` or `--theme-file ./extra.css` (served as `/themes/custom.css`)
 - Env: `ORQ_DASH_THEME` / `ORQ_DASH_THEME_FILE`
-- Header picker persists `porq.dash.theme` (observe-only preference)
-- Precedence: `?theme=` → theme-file → `--theme`/env → localStorage → `default`
+- Header picker persists `porq.dash.qa-theme`
 
-Variable catalog + how to add a pack: [`web/dashboard/themes/README.md`](web/dashboard/themes/README.md). Canvas authoring: [`docs/canvas-authoring.md`](docs/canvas-authoring.md).
+See [`web/dashboard/themes/README.md`](web/dashboard/themes/README.md).
 
 #### Theme gallery
 
 <table>
   <tr>
-    <td align="center" width="33%">
-      <a href="docs/img/gallery/theme-default.png"><img src="docs/img/gallery/theme-default.png" alt="default theme" width="280" /></a><br />
-      <sub><b>default</b> — warm dark</sub>
+    <td align="center" width="50%">
+      <a href="docs/img/gallery/theme-dark.png"><img src="docs/img/gallery/theme-dark.png" alt="dark theme" width="420" /></a><br />
+      <sub><b>dark</b></sub>
     </td>
-    <td align="center" width="33%">
-      <a href="docs/img/gallery/theme-dracula.png"><img src="docs/img/gallery/theme-dracula.png" alt="dracula theme" width="280" /></a><br />
-      <sub><b>dracula</b></sub>
-    </td>
-    <td align="center" width="33%">
-      <a href="docs/img/gallery/theme-system.png"><img src="docs/img/gallery/theme-system.png" alt="system theme" width="280" /></a><br />
-      <sub><b>system</b> — light / OS</sub>
+    <td align="center" width="50%">
+      <a href="docs/img/gallery/theme-light.png"><img src="docs/img/gallery/theme-light.png" alt="light theme" width="420" /></a><br />
+      <sub><b>light</b></sub>
     </td>
   </tr>
 </table>
@@ -370,12 +373,12 @@ Full-size stills live under [`docs/img/gallery/`](docs/img/gallery/). Regen with
 
 ### Two views
 
-- **Canvases** (primary, default) — agent-published markdown / image / url / html cards, plus the **Computer focus** ownership panel.
-- **Details** — board, tasks, jobs, affinities, events, files. Opens automatically when there are no canvases.
+- **Canvases** (primary, default) — agent-published markdown / image / url / html cards on the 12-col grid, plus the **Computer focus** ownership panel.
+- **Details** — docked board, tasks, jobs, affinities, events, files. Opens automatically when there are no canvases.
 - **Pulse strip** — counts + latest event; click to open Details.
 
 Tab choice persists in `localStorage`. Regenerate README images with
-`cd web && npm run capture:readme` (hero PNGs/GIF, theme+scale gallery, and `usecases/porq-demo-dracula.png`).
+`cd web && npm run capture:readme` (hero PNGs/GIF + theme/scale gallery).
 
 ### Canvases (display protocol v1)
 
@@ -384,7 +387,7 @@ The dashboard polls them with the rest of the snapshot.
 
 | `kind` | Fields | Renders as |
 |--------|--------|------------|
-| `markdown` | `title`, `body` | Safe escape-first markdown subset |
+| `markdown` | `title`, `body` | Safe escape-first markdown subset (+ optional `mermaid` fences) |
 | `image` | `title`, `src`, `alt?` | `<img>` |
 | `url` | `title`, `src`, `height?` | Sandboxed iframe |
 | `html` | `title`, `body`, `height?` | `srcdoc` iframe (`sandbox=""` — no scripts) |

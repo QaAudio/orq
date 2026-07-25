@@ -297,7 +297,7 @@ writeFileSync(
     {
       dataDir,
       orq: orqBin,
-      dashRoot: join(root, "web", "dashboard"),
+      dashRoot: join(root, "web", "dashboard", "dist"),
       workspace: WS,
       snapshot: join(dataDir, "dash", "data.json"),
     },

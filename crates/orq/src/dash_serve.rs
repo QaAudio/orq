@@ -24,20 +24,30 @@ pub fn resolve_dash_root(explicit: Option<PathBuf>) -> PathBuf {
     if let Ok(p) = std::env::var("ORQ_DASH_ROOT") {
         return PathBuf::from(p);
     }
-    let from_manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../web/dashboard");
+    // Vue/Vite build output (npm run build → web/dashboard/dist)
+    let from_manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../web/dashboard/dist");
     if from_manifest.join("index.html").is_file() {
         return from_manifest;
     }
-    PathBuf::from("web/dashboard")
+    PathBuf::from("web/dashboard/dist")
 }
 
-/// Theme selection for `dash serve` (CLI / env). Query + localStorage apply in the browser.
+/// Theme selection for `dash serve` (CLI / env). Maps onto SDK `data-qa-theme` (dark|light).
 #[derive(Debug, Clone, Default)]
 pub struct DashThemeOpts {
-    /// Curated pack name: `default`, `dracula`, `system`. Ignored when `theme_file` is set.
+    /// Boot theme: `dark` or `light`. Legacy aliases: default/dracula → dark, system → light.
     pub theme: String,
-    /// Custom CSS file (same CSS variables). Served as `/themes/custom.css`.
+    /// Optional extra CSS file served as `/themes/custom.css` (canvas HTML bridge overrides).
     pub theme_file: Option<PathBuf>,
+}
+
+/// Normalize CLI/env theme names onto SDK light/dark.
+pub fn map_theme_to_qa(name: &str) -> Option<&'static str> {
+    match name {
+        "dark" | "default" | "dracula" => Some("dark"),
+        "light" | "system" => Some("light"),
+        _ => None,
+    }
 }
 
 pub fn resolve_theme_opts(cli_theme: Option<String>, cli_theme_file: Option<PathBuf>) -> Result<DashThemeOpts> {
@@ -52,41 +62,26 @@ pub fn resolve_theme_opts(cli_theme: Option<String>, cli_theme_file: Option<Path
             bail!("theme file not found: {}", path.display());
         }
         return Ok(DashThemeOpts {
-            theme: "custom".into(),
+            theme: "dark".into(),
             theme_file,
         });
     }
-    let theme = cli_theme
+    let raw = cli_theme
         .or_else(|| std::env::var("ORQ_DASH_THEME").ok().filter(|s| !s.is_empty()))
-        .unwrap_or_else(|| "default".into());
-    if !is_curated_theme(&theme) {
+        .unwrap_or_else(|| "dark".into());
+    let Some(theme) = map_theme_to_qa(&raw) else {
         bail!(
-            "unknown dash theme '{theme}' (supported: default, dracula, system; or --theme-file)"
+            "unknown dash theme '{raw}' (supported: dark, light, default, dracula, system; or --theme-file)"
         );
-    }
+    };
     Ok(DashThemeOpts {
-        theme,
+        theme: theme.into(),
         theme_file: None,
     })
 }
 
-fn is_curated_theme(name: &str) -> bool {
-    matches!(name, "default" | "dracula" | "system")
-}
-
-fn embedded_theme_css(file_name: &str) -> Option<&'static str> {
-    // Compile-time presence check for curated packs (fallback when disk missing).
-    match file_name {
-        "base.css" => Some(include_str!("../../../web/dashboard/themes/base.css")),
-        "default.css" => Some(include_str!("../../../web/dashboard/themes/default.css")),
-        "dracula.css" => Some(include_str!("../../../web/dashboard/themes/dracula.css")),
-        "system.css" => Some(include_str!("../../../web/dashboard/themes/system.css")),
-        _ => None,
-    }
-}
-
 fn theme_css_response(
-    root: &Path,
+    _root: &Path,
     file_name: &str,
     theme_file: Option<&Path>,
 ) -> (&'static str, &'static str, Vec<u8>) {
@@ -108,29 +103,10 @@ fn theme_css_response(
             ),
         };
     }
-    if !file_name.ends_with(".css")
-        || file_name.contains("..")
-        || file_name.contains('/')
-        || file_name.contains('\\')
-        || file_name.contains('\0')
-    {
-        return (
-            "400 Bad Request",
-            "text/plain; charset=utf-8",
-            b"invalid theme path".to_vec(),
-        );
-    }
-    let disk = root.join("themes").join(file_name);
-    if let Ok(bytes) = fs::read(&disk) {
-        return ("200 OK", CTYPE, bytes);
-    }
-    if let Some(embedded) = embedded_theme_css(file_name) {
-        return ("200 OK", CTYPE, embedded.as_bytes().to_vec());
-    }
     (
         "404 Not Found",
         "text/plain; charset=utf-8",
-        format!("missing theme {file_name}").into_bytes(),
+        format!("missing theme {file_name} (Vue dash uses SDK theme.css; only custom.css is served)").into_bytes(),
     )
 }
 
@@ -144,33 +120,16 @@ fn index_html_response(root: &Path, theme_opts: &DashThemeOpts) -> (&'static str
             format!("missing {}", path.display()).into_bytes(),
         );
     };
-    let boot = if theme_opts.theme_file.is_some() {
-        "custom"
-    } else {
-        theme_opts.theme.as_str()
-    };
-    let html = raw.replace(
-        "data-theme-boot=\"default\"",
-        &format!("data-theme-boot=\"{boot}\""),
-    );
-    let html = if boot == "custom" {
-        html.replace(
-            "href=\"/themes/default.css\"",
-            "href=\"/themes/custom.css\"",
-        )
-        .replace("data-theme=\"default\"", "data-theme=\"custom\"")
-    } else if boot != "default" {
-        html.replace(
-            "href=\"/themes/default.css\"",
-            &format!("href=\"/themes/{boot}.css\""),
+    let boot = theme_opts.theme.as_str();
+    let html = raw
+        .replace(
+            "data-theme-boot=\"dark\"",
+            &format!("data-theme-boot=\"{boot}\""),
         )
         .replace(
-            "data-theme=\"default\"",
-            &format!("data-theme=\"{boot}\""),
-        )
-    } else {
-        html
-    };
+            "data-qa-theme=\"dark\"",
+            &format!("data-qa-theme=\"{boot}\""),
+        );
     ("200 OK", CTYPE, html.into_bytes())
 }
 
@@ -250,6 +209,8 @@ pub fn run_serve(
             )
         } else if path == "/" || path == "/index.html" {
             index_html_response(&root, &theme_opts)
+        } else if let Some(rel) = path.strip_prefix("/assets/") {
+            asset_response(&root, rel)
         } else if path == "/app.js" {
             file_response(
                 &root.join("app.js"),
@@ -754,9 +715,33 @@ fn content_type_for(name: &str) -> &'static str {
         "gif" => "image/gif",
         "webp" => "image/webp",
         "svg" => "image/svg+xml",
+        "js" | "mjs" => "application/javascript; charset=utf-8",
+        "css" => "text/css; charset=utf-8",
+        "woff" => "font/woff",
+        "woff2" => "font/woff2",
+        "map" => "application/json; charset=utf-8",
         "txt" => "text/plain; charset=utf-8",
         "md" => "text/markdown; charset=utf-8",
         "json" => "application/json; charset=utf-8",
         _ => "application/octet-stream",
     }
+}
+
+/// Serve Vite build assets from `<root>/assets/<rel>` (path-traversal safe).
+fn asset_response(root: &Path, rel: &str) -> (&'static str, &'static str, Vec<u8>) {
+    if rel.is_empty()
+        || rel.contains("..")
+        || rel.contains('\\')
+        || rel.contains('\0')
+        || rel.starts_with('/')
+    {
+        return (
+            "400 Bad Request",
+            "text/plain; charset=utf-8",
+            b"invalid asset path".to_vec(),
+        );
+    }
+    let path = root.join("assets").join(rel);
+    let ctype = content_type_for(rel);
+    file_response(&path, ctype)
 }

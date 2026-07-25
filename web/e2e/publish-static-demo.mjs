@@ -1,7 +1,7 @@
 /**
  * Publish static GitHub Pages demo:
  * - seed tdrs-loop narrative
- * - copy real web/dashboard → docs/demo/
+ * - copy built web/dashboard/dist → docs/demo/
  * - write frozen data.json with static_demo: true
  * - write docs/index.html → redirect to demo/
  *
@@ -23,9 +23,14 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..", "..");
-const dashSrc = join(root, "web", "dashboard");
+const dashSrc = join(root, "web", "dashboard", "dist");
 const demoOut = join(root, "docs", "demo");
 const docsIndex = join(root, "docs", "index.html");
+
+if (!existsSync(join(dashSrc, "index.html"))) {
+  console.error("missing built dash at", dashSrc, "— run npm run build first");
+  process.exit(1);
+}
 
 const seed = spawnSync(process.execPath, [join(__dirname, "seed-tdrs-demo.mjs")], {
   encoding: "utf8",

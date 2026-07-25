@@ -1,16 +1,22 @@
 /**
  * Capture README dashboard assets:
- * - docs/img/dashboard.png          (Canvases view)
+ * - docs/img/dashboard.png          (Canvases — feature showcase)
  * - docs/img/dashboard-details.png  (Details view)
  * - docs/img/dashboard.gif          (toggle between the two)
- * - docs/img/gallery/theme-*.png    (default / dracula / system)
+ * - docs/img/gallery/theme-*.png    (dark / light)
  * - docs/img/gallery/scale-*.png    (100% / 125% / 150% CSS zoom)
  *
  * Usage (from web/): node e2e/capture-readme.mjs
  */
 import { spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:net";
-import { mkdirSync, readFileSync, existsSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  readFileSync,
+  existsSync,
+  writeFileSync,
+  unlinkSync,
+} from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
@@ -22,7 +28,19 @@ const galleryDir = join(outDir, "gallery");
 const outCanvases = join(outDir, "dashboard.png");
 const outDetails = join(outDir, "dashboard-details.png");
 const outGif = join(outDir, "dashboard.gif");
-const outDracula = join(outDir, "usecases", "porq-demo-dracula.png");
+
+/** Readable 12-col layout so mermaid + HTML fit at 1440×900. */
+const SHOWCASE_LAYOUT = {
+  v: 1,
+  cols: 12,
+  rowHeight: 40,
+  items: {
+    plan: { x: 0, y: 0, w: 7, h: 11 },
+    status: { x: 7, y: 0, w: 5, h: 7 },
+    probe: { x: 7, y: 7, w: 5, h: 4 },
+    log: { x: 0, y: 11, w: 12, h: 5 },
+  },
+};
 
 function freePort() {
   return new Promise((resolve, reject) => {
@@ -60,22 +78,36 @@ async function waitReady(page) {
   }, null, { timeout: 15_000 });
   await page.waitForSelector(".canvas-card", { timeout: 10_000 });
   await page.waitForSelector("#pulse-event", { timeout: 10_000 });
-  await page.waitForTimeout(500);
+  // Mermaid lazy-renders into the plan card
+  await page.waitForFunction(
+    () =>
+      document.querySelectorAll(
+        '.canvas-card[data-key="plan"] .canvas-md pre.mermaid svg'
+      ).length > 0,
+    null,
+    { timeout: 15_000 }
+  );
+  await page.waitForTimeout(400);
 }
 
 async function gotoCanvases(page, baseURL, theme) {
-  await page.addInitScript((t) => {
-    try {
-      localStorage.setItem("porq.dash.view", "canvases");
-      localStorage.setItem("porq.dash.theme", t);
-    } catch {
-      /* ignore */
-    }
-  }, theme);
+  await page.addInitScript(
+    ({ t, layout }) => {
+      try {
+        localStorage.setItem("porq.dash.view", "canvases");
+        localStorage.setItem("porq.dash.qa-theme", t);
+        localStorage.setItem("porq.dash.layout.canvases", JSON.stringify(layout));
+        localStorage.setItem("porq.dash.filter.state", "active");
+      } catch {
+        /* ignore */
+      }
+    },
+    { t: theme, layout: SHOWCASE_LAYOUT }
+  );
   await page.goto(`${baseURL}/?theme=${theme}`);
   await waitReady(page);
   await page.waitForFunction(
-    (t) => document.documentElement.getAttribute("data-theme") === t,
+    (t) => document.documentElement.getAttribute("data-qa-theme") === t,
     theme,
     { timeout: 5_000 }
   );
@@ -99,45 +131,112 @@ if (!existsSync(statePath)) {
 }
 const state = JSON.parse(readFileSync(statePath, "utf8"));
 
-// Rich demo canvases for the README shot
-runOrq(state.orq, state.dataDir, ["canvas", "rm", "plan", "--json"], { allowFail: true });
-runOrq(state.orq, state.dataDir, ["canvas", "rm", "render", "--json"], { allowFail: true });
-runOrq(state.orq, state.dataDir, ["canvas", "rm", "mystery", "--json"], { allowFail: true });
-runOrq(state.orq, state.dataDir, ["canvas", "rm", "mission", "--json"], { allowFail: true });
-runOrq(state.orq, state.dataDir, ["canvas", "rm", "status", "--json"], { allowFail: true });
-runOrq(state.orq, state.dataDir, ["canvas", "rm", "probe", "--json"], { allowFail: true });
-runOrq(state.orq, state.dataDir, ["canvas", "rm", "log", "--json"], { allowFail: true });
+// Feature-showcase canvases for the README shot
+for (const key of ["plan", "render", "mystery", "mission", "status", "probe", "log"]) {
+  runOrq(state.orq, state.dataDir, ["canvas", "rm", key, "--json"], { allowFail: true });
+}
+
+const planBody = [
+  "# Loop plan",
+  "",
+  "**State:** ok",
+  "",
+  "**Next:** `porq status --json --limit 20`",
+  "",
+  "Updated 2026-07-25T18:00:00Z",
+  "",
+  "| lane | state | note |",
+  "| --- | --- | --- |",
+  "| alpha | pending | claim `src/**` |",
+  "| beta | done | checks green |",
+  "| review | blocked | human gate |",
+  "",
+  "## Minimap",
+  "",
+  "```mermaid",
+  "flowchart LR",
+  '  A["prev done"] --> B["current ACTIVE"]',
+  '  B --> C["next"]',
+  "```",
+].join("\n");
 
 runOrq(state.orq, state.dataDir, [
   "canvas",
   "set",
-  "mission",
+  "plan",
   "--title",
-  "Mission",
+  "Loop plan",
   "--order",
   "1",
   "--body",
-  "## Ship the desk\n\n- lock paths with `--claim`\n- publish status canvases\n- keep Details for ops\n\nRun `porq dash serve` and watch the pulse.",
+  planBody,
   "--json",
 ]);
 
-const svgPath = join(state.dataDir, "status-card.html");
+// HTML canvas: authoring uses bridge var names (system-color fallbacks inside sandboxed srcdoc)
+const htmlPath = join(state.dataDir, "status-card.html");
 writeFileSync(
-  svgPath,
-  `<!DOCTYPE html><html><body style="margin:0;background:#141210;font-family:IBM Plex Mono,monospace;color:#f2ebe3">
-<svg viewBox="0 0 420 220" width="100%" xmlns="http://www.w3.org/2000/svg">
-  <rect width="420" height="220" rx="12" fill="#1c1916" stroke="#3a342c"/>
-  <text x="24" y="40" fill="#e8a838" font-size="18" font-family="Syne,sans-serif" font-weight="700">status</text>
-  <text x="24" y="68" fill="#9a9084" font-size="12">workspace · default</text>
-  <circle cx="320" cy="110" r="54" fill="none" stroke="#2a2520" stroke-width="14"/>
-  <circle cx="320" cy="110" r="54" fill="none" stroke="#3db8a0" stroke-width="14"
-    stroke-dasharray="240 340" stroke-linecap="round" transform="rotate(-90 320 110)"/>
-  <text x="320" y="116" text-anchor="middle" fill="#f2ebe3" font-size="22" font-weight="600">87%</text>
-  <text x="24" y="120" fill="#6bbf7a" font-size="13">● 4 tasks done</text>
-  <text x="24" y="148" fill="#e8a838" font-size="13">● MoA route sticky</text>
-  <text x="24" y="176" fill="#6a9fbf" font-size="13">● 3 canvases live</text>
-  <text x="24" y="204" fill="#9a9084" font-size="11">affinity code.edit → stub1</text>
-</svg></body></html>`
+  htmlPath,
+  `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  :root {
+    color-scheme: dark light;
+    --text: CanvasText;
+    --muted: GrayText;
+    --accent: LinkText;
+    --bg: Canvas;
+    --panel: Field;
+    --border: GrayText;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 14px 16px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.45;
+    background: var(--panel);
+    color: var(--text);
+  }
+  h1 {
+    margin: 0 0 4px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .muted { color: var(--muted); font-size: 11px; margin-bottom: 12px; }
+  .row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0;
+    border-top: 1px solid var(--border);
+  }
+  .label { color: var(--muted); }
+  .value { color: var(--text); font-weight: 600; }
+  .gauge {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+  }
+  .gauge strong { color: var(--accent); font-size: 18px; }
+</style>
+</head>
+<body>
+  <h1>status</h1>
+  <div class="muted">workspace · default · theme bridge</div>
+  <div class="row"><span class="label">tasks done</span><span class="value">4</span></div>
+  <div class="row"><span class="label">MoA route</span><span class="value">sticky</span></div>
+  <div class="row"><span class="label">canvases live</span><span class="value">4</span></div>
+  <div class="gauge">affinity <strong>code.edit</strong> → stub1</div>
+</body>
+</html>`
 );
 runOrq(state.orq, state.dataDir, [
   "canvas",
@@ -146,9 +245,9 @@ runOrq(state.orq, state.dataDir, [
   "--title",
   "Status",
   "--html",
-  svgPath,
+  htmlPath,
   "--height",
-  "240",
+  "220",
   "--order",
   "2",
   "--json",
@@ -188,7 +287,16 @@ runOrq(state.orq, state.dataDir, [
   "--order",
   "4",
   "--body",
-  "## Changelog\n\n1. **mission** canvas published\n2. SVG **status** gauge rendered (sandboxed html)\n3. **probe** image attached via `canvas:` asset\n4. Pulse strip shows live counts without leaving Canvases view",
+  [
+    "# Changelog",
+    "",
+    "**State:** live",
+    "",
+    "1. **plan** markdown + mermaid minimap published",
+    "2. **status** HTML card uses theme bridge CSS vars",
+    "3. **probe** image attached via `canvas:` asset",
+    "4. Shell chrome: SDK tabs, badges, theme picker — not inside canvas bodies",
+  ].join("\n"),
   "--json",
 ]);
 
@@ -229,19 +337,26 @@ await new Promise((resolve, reject) => {
 
 mkdirSync(outDir, { recursive: true });
 mkdirSync(galleryDir, { recursive: true });
-mkdirSync(dirname(outDracula), { recursive: true });
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-await page.addInitScript(() => {
+await page.addInitScript((layout) => {
   try {
     localStorage.setItem("porq.dash.view", "canvases");
+    localStorage.setItem("porq.dash.qa-theme", "dark");
+    localStorage.setItem("porq.dash.layout.canvases", JSON.stringify(layout));
+    localStorage.setItem("porq.dash.filter.state", "active");
   } catch {
     /* ignore */
   }
-});
+}, SHOWCASE_LAYOUT);
 await page.goto(baseURL + "/");
 await waitReady(page);
+await page.waitForFunction(
+  () => document.documentElement.getAttribute("data-qa-theme") === "dark",
+  null,
+  { timeout: 5_000 }
+);
 await page.screenshot({ path: outCanvases, fullPage: false });
 
 await page.locator("#tab-details").click();
@@ -250,17 +365,14 @@ await page.waitForSelector("#board", { timeout: 5_000 });
 await page.waitForTimeout(400);
 await page.screenshot({ path: outDetails, fullPage: false });
 
-// Theme gallery + usecases/dracula still
-const themes = ["default", "dracula", "system"];
+// Theme gallery (dark / light)
+const themes = ["dark", "light"];
 for (const theme of themes) {
   const themePage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   await gotoCanvases(themePage, baseURL, theme);
   const dest = join(galleryDir, `theme-${theme}.png`);
   await themePage.screenshot({ path: dest, fullPage: false });
   console.log("wrote", dest);
-  if (theme === "dracula") {
-    await themePage.screenshot({ path: outDracula, fullPage: false });
-  }
   await themePage.close();
 }
 
@@ -272,7 +384,7 @@ const scales = [
 ];
 for (const { label, zoom } of scales) {
   const scalePage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-  await gotoCanvases(scalePage, baseURL, "default");
+  await gotoCanvases(scalePage, baseURL, "dark");
   await scalePage.evaluate((z) => {
     document.documentElement.style.zoom = String(z);
   }, zoom);
@@ -285,6 +397,21 @@ for (const { label, zoom } of scales) {
 
 await browser.close();
 proc.kill();
+
+// Drop obsolete gallery / alias files from pre-SDK themes
+for (const stale of [
+  join(galleryDir, "theme-default.png"),
+  join(galleryDir, "theme-dracula.png"),
+  join(galleryDir, "theme-system.png"),
+  join(outDir, "usecases", "porq-demo-dracula.png"),
+]) {
+  try {
+    unlinkSync(stale);
+    console.log("removed", stale);
+  } catch {
+    /* missing ok */
+  }
+}
 
 const gifPy = `
 from PIL import Image
@@ -310,5 +437,4 @@ if (gif.status !== 0) {
 console.log("wrote", outCanvases);
 console.log("wrote", outDetails);
 console.log("wrote", outGif);
-console.log("wrote", outDracula);
 console.log("gallery ->", galleryDir);

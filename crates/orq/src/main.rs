@@ -207,7 +207,7 @@ enum DashCmd {
         root: Option<PathBuf>,
         #[arg(long)]
         out: Option<PathBuf>,
-        /// Curated pack: default | dracula | system (env: ORQ_DASH_THEME)
+        /// SDK theme: dark | light (aliases: default/dracula→dark, system→light; env: ORQ_DASH_THEME)
         #[arg(long)]
         theme: Option<String>,
         /// Custom CSS file of the same variables (env: ORQ_DASH_THEME_FILE)

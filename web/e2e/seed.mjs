@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawnSync, spawn } from "node:child_process";
 import { mkdtempSync, writeFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
@@ -81,6 +81,18 @@ run([
   "owner=review",
   "--json",
 ]);
+run([
+  "poi",
+  "set",
+  "board",
+  "oldlane",
+  JSON.stringify({ note: "archived lane" }),
+  "--state",
+  "archived",
+  "--col",
+  "owner=archive",
+  "--json",
+]);
 
 run([
   "model",
@@ -131,6 +143,37 @@ run([
   "echo",
   "E2E",
 ]);
+
+// Detached long-lived task for Running tasks + Board claim highlight (key "alpha")
+{
+  const args = [
+    "run",
+    "--claim",
+    "alpha",
+    "--name",
+    "e2e-running",
+    "--json",
+    "--",
+    ...(process.platform === "win32"
+      ? ["cmd", "/c", "ping", "-n", "300", "127.0.0.1"]
+      : ["sleep", "300"]),
+  ];
+  const child = spawn(orq, args, {
+    env: process.env,
+    detached: true,
+    stdio: "ignore",
+    windowsHide: true,
+  });
+  child.unref();
+  const deadline = Date.now() + 20_000;
+  while (Date.now() < deadline) {
+    const st = run(["status", "--json", "--limit", "40"], { allowFail: true });
+    const out = `${st.stdout || ""}${st.stderr || ""}`;
+    if (/e2e-running/i.test(out) && /running|starting/i.test(out)) break;
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 400);
+  }
+}
+
 run([
   "run",
   "--sync",
@@ -160,7 +203,20 @@ run([
   "--title",
   "E2E Plan",
   "--body",
-  "## E2E Plan\n\n- seed board\n- publish canvas\n- assert render",
+  [
+    "## E2E Plan",
+    "",
+    "**State:** ok | **Generated:** 2026-07-25T12:00:00Z",
+    "",
+    "- seed board",
+    "- publish canvas",
+    "- assert render",
+    "",
+    "```mermaid",
+    "flowchart LR",
+    '  A["start"] --> B["done"]',
+    "```",
+  ].join("\n"),
   "--order",
   "1",
   "--json",
@@ -257,7 +313,7 @@ writeFileSync(
     {
       dataDir,
       orq,
-      dashRoot: join(root, "web", "dashboard"),
+      dashRoot: join(root, "web", "dashboard", "dist"),
     },
     null,
     2

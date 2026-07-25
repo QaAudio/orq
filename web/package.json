@@ -1,15 +1,32 @@
 {
   "name": "orq-web",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
-    "test:e2e": "node e2e/seed.mjs && playwright test",
-    "test:e2e:headed": "node e2e/seed.mjs && playwright test --headed",
-    "capture:readme": "node e2e/capture-readme.mjs",
-    "publish:demo": "node e2e/publish-static-demo.mjs"
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit",
+    "test:e2e": "npm run build && node e2e/seed.mjs && playwright test",
+    "test:e2e:headed": "npm run build && node e2e/seed.mjs && playwright test --headed",
+    "capture:readme": "npm run build && node e2e/capture-readme.mjs",
+    "publish:demo": "npm run build && node e2e/publish-static-demo.mjs"
+  },
+  "dependencies": {
+    "@quantumaudio/ableton-extension-sdk": "github:QaAudio/qa-ableton-extension-sdk#0319277370b98e3051517b05462634e4d44f1f77",
+    "mermaid": "^11.16.0",
+    "vue": "^3.5.13",
+    "vue-material-design-icons": "^5.3.1"
   },
   "devDependencies": {
-    "@playwright/test": "^1.51.0"
+    "@playwright/test": "^1.51.0",
+    "@vitejs/plugin-vue": "^5.2.4",
+    "typescript": "^5.9.3",
+    "vite": "^6.3.5",
+    "vue-tsc": "^2.2.8"
+  },
+  "engines": {
+    "node": ">=24.14.1"
   }
 }
