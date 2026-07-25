@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="porq">
+  <rect width="128" height="128" rx="28" fill="#141210"/>
+  <ellipse cx="64" cy="70" rx="36" ry="30" fill="#e8a838"/>
+  <ellipse cx="40" cy="38" rx="14" ry="18" fill="#e8a838"/>
+  <ellipse cx="88" cy="38" rx="14" ry="18" fill="#e8a838"/>
+  <ellipse cx="40" cy="38" rx="8" ry="11" fill="#c4892a"/>
+  <ellipse cx="88" cy="38" rx="8" ry="11" fill="#c4892a"/>
+  <ellipse cx="64" cy="78" rx="18" ry="14" fill="#f2ebe3"/>
+  <ellipse cx="56" cy="78" rx="4" ry="5" fill="#3db8a0"/>
+  <ellipse cx="72" cy="78" rx="4" ry="5" fill="#3db8a0"/>
+  <circle cx="50" cy="58" r="3.5" fill="#141210"/>
+  <circle cx="78" cy="58" r="3.5" fill="#141210"/>
+</svg>

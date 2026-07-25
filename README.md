@@ -1,13 +1,16 @@
+<p align="center">
+  <img src="docs/img/porq-icon.svg" alt="porq" width="96" height="96" />
+</p>
+
 # porq
 
-> **p**rogressive **orq**uestration — one binary, layers you opt into
->
-> Start with one command. Stop wherever it stops hurting.
+> Progressive orchestration for multi-agent work.
+> Pronounced like French *porc* — hence the pig.
 
-Most orchestrators ask you to move in: adopt the platform, learn the DSL,
-deploy the control plane, *then* run your first task. **porq** works the other
-way around. It's a single local binary that is useful at every layer of
-adoption — and each layer is opt-in:
+A single local binary that grows with you. Start with supervised tasks; add
+shared state, leases, triggers, model routing, and optional remote storage when
+you need them. Earlier layers stay useful — you do not rewrite the workflow to
+climb.
 
 ```text
 run one task            →  porq run --sync -- "cargo test"
@@ -18,27 +21,21 @@ route across models     →  + affinities, race / MoA jobs
 share across machines   →  + --remote (Turso/libSQL)
 ```
 
-You never rewrite what you built at the previous layer. The commands stay the
-same; the system underneath grows with you — from "glorified task runner on my
-laptop" to "shared cloud desk for a swarm of agents" without a single
-Kubernetes manifest.
+<p align="center">
+  <img src="docs/img/dashboard.gif" alt="porq dashboard — Canvases and Details views" width="920" />
+</p>
 
-![porq live dashboard — canvas-first view](docs/img/dashboard.png)
-
-<p align="center"><sub>Canvas-first UI — <code>porq dash serve</code>. Ops panels live under <strong>Details</strong>.</sub></p>
+<p align="center"><sub><strong>Canvases</strong> (agent-published surfaces) ↔ <strong>Details</strong> (board, tasks, jobs, events). Pulse strip stays visible either way. <code>porq dash serve</code></sub></p>
 
 ---
 
 ## Why this exists
 
-You have three agents editing the same repo. One is rewriting the API. One is
-fixing tests. One just invented a new folder name. Without coordination you
-get git roulette. porq is the shared desk: sticky notes that version, leases
-that expire, tasks that claim files, triggers that react, and a dashboard that
-proves something actually happened.
+Multiple agents on one repo need coordination: versioned shared state, path
+claims so editors do not collide, triggers for remediation, and a live view of
+what actually ran. porq is that shared workspace — opt-in by layer, CLI-first.
 
-The trick is that you don't adopt "the desk" on day one. You adopt `porq run`.
-The rest is sitting there when you need it.
+You adopt `porq run` first. The rest is available when the workflow demands it.
 
 ---
 
@@ -51,14 +48,13 @@ The rest is sitting there when you need it.
 | **2 — Not collide** | Leases & claims | Time-boxed locks with holders; `--claim "src/**"` fences files for a task's lifetime. |
 | **3 — React** | Triggers | "When X happens, do Y" with blocking vetoes, budgets, cascade guards. Daemon auto-spawns. |
 | **4 — Route** | Models & jobs | Affinity scores that learn (EMA), `single` / `race` / `moa` scheduling. |
-| **5 — Share** | `--remote` | Same CLI against Turso/libSQL. Two laptops, one desk, real transactions. |
+| **5 — Share** | `--remote` | Same CLI against Turso/libSQL. Shared store across machines, transactional writes. |
 
-Every mutation at every layer lands in one append-only **event log**, and the
-**dashboard** renders it all live — including agent-published **canvases**
-(markdown / image / url / html). Observability isn't a layer — it's the floor.
+Every mutation lands in one append-only **event log**. The **dashboard** renders
+tasks, POIs, jobs, and agent-published **canvases** (markdown / image / url /
+html) from that store.
 
-Inspired by (and cheerfully independent from) Pueue, Temporal, Restate,
-Taskwarrior, Hatchet, and the Loop Meta vibe from td-rs.
+Related ideas: Pueue, Temporal, Restate, Taskwarrior, Hatchet.
 
 ---
 
@@ -87,11 +83,11 @@ powershell -ExecutionPolicy Bypass -File scripts/smoke.ps1
 
 ## Quickstarts, one per layer
 
-Expand, copy-paste, climb. Deeper plots live under
-[Workflows](#workflows-that-emerge) and [`recipes/`](recipes/).
+Expand and copy. Longer patterns live under
+[Workflows](#workflows) and [`recipes/`](recipes/).
 
 <details>
-<summary><strong>Layer 0 — Run a task</strong> — no daemon, no ceremony</summary>
+<summary><strong>Layer 0 — Run a task</strong></summary>
 
 ```bash
 porq init
@@ -99,12 +95,12 @@ porq run --sync --name hi -- "echo hello from porq"
 porq status --json
 ```
 
-`--sync` blocks and supervises inline. Drop it and a daemon quietly takes over.
+`--sync` blocks and supervises inline. Without it, a local daemon takes over.
 
 </details>
 
 <details>
-<summary><strong>Layer 1 — Pin shared state</strong> — POIs, the sticky notes that version</summary>
+<summary><strong>Layer 1 — Shared state (POIs)</strong></summary>
 
 ```bash
 porq poi table create notes --cols body:string:poi
@@ -112,36 +108,35 @@ porq poi set notes hello '"world"' --tier ephemeral
 porq poi get notes hello --json
 ```
 
-Every `set` bumps a version; `--if-version` gives you compare-and-swap.
+Every `set` bumps a version; `--if-version` is compare-and-swap.
 
 </details>
 
 <details>
-<summary><strong>Layer 2 — Stop collisions</strong> — leases and path claims</summary>
+<summary><strong>Layer 2 — Leases and path claims</strong></summary>
 
 ```bash
 porq poi lock notes hello --holder agent-a --ttl 300
 porq run --sync --name refactor --claim "src/**" -- "cargo test -p foo"
 ```
 
-Overlapping claims wait or fail closed — leases, not vibes. `poi steal` for recovery.
+Overlapping claims wait or fail closed. Use `poi steal` for recovery.
 
 </details>
 
 <details>
-<summary><strong>Layer 3 — React to changes</strong> — triggers with budgets</summary>
+<summary><strong>Layer 3 — Triggers</strong></summary>
 
 ```bash
 porq trigger add on-broken --on poi.changed --where-cond "state==broken" --do-action "spawn:./remediate.sh"
 ```
 
-Blocking triggers can veto; budgets and cascade guards keep a flaky rule from
-becoming a fork-bomb.
+Blocking triggers can veto; budgets and cascade guards limit runaway remediations.
 
 </details>
 
 <details>
-<summary><strong>Layer 4 — Route across models</strong> — affinity + race / MoA</summary>
+<summary><strong>Layer 4 — Model routing / MoA</strong></summary>
 
 ```bash
 porq model add fast --cli "echo FAST:{cmd}" --capability code
@@ -150,13 +145,13 @@ porq affinity set code.edit strong --score 0.9
 porq run --sync --class code.edit --strategy moa --moa-k 2 --name edit -- "propose"
 ```
 
-Affinities learn from outcomes (EMA). `race` for the first good answer, `moa`
-for propose → aggregate.
+Affinities learn from outcomes (EMA). `race` returns the first good answer;
+`moa` proposes then aggregates.
 
 </details>
 
 <details>
-<summary><strong>Layer 5 — Share across machines</strong> — same CLI, Turso/libSQL</summary>
+<summary><strong>Layer 5 — Remote store (Turso/libSQL)</strong></summary>
 
 ```bash
 cp .env.example .env   # fill ORQ_DB_URL + TOKEN
@@ -164,12 +159,13 @@ porq --remote init
 porq --remote poi set board hello '{"msg":"shared"}'
 ```
 
-Opt-in only: without `--remote`, you stay local. A stray `.env` never hijacks you.
+Opt-in only: without `--remote`, storage stays local. A present `.env` does not
+force remote mode.
 
 </details>
 
 <details>
-<summary><strong>Bonus — Publish a canvas</strong> — markdown / image / url on the dashboard</summary>
+<summary><strong>Publish a canvas</strong></summary>
 
 ```bash
 porq canvas set plan --body "## Next\n- probe\n- ship"
@@ -177,12 +173,12 @@ porq canvas set shot --image ./out.png --title "Render"
 porq dash serve --port 9847
 ```
 
-Canvases are POIs in the reserved `canvas` table — versioned, lockable, live within 1s.
+Canvases are POIs in the reserved `canvas` table — versioned, lockable, refreshed within about 1s.
 
 </details>
 
 <details>
-<summary><strong>Bonus — Watch the pulse</strong> — that's the screenshot above</summary>
+<summary><strong>Open the dashboard</strong></summary>
 
 ```bash
 porq dash snapshot
@@ -193,24 +189,24 @@ porq dash serve --port 9847
 </details>
 
 <details>
-<summary><strong>Bonus — Teach Cursor about porq</strong> — skill + AGENTS snippet</summary>
+<summary><strong>Integrate with Cursor</strong></summary>
 
 ```bash
 porq integrate cursor --path /path/to/host/repo
 ```
 
-Agents then speak POI / claim / trigger instead of inventing folklore.
+Writes `.cursor/skills/porq/SKILL.md` and an `AGENTS.md` snippet so agents use
+POI / claim / trigger / canvas instead of ad-hoc lock files.
 
 </details>
 
 ---
 
-## Workflows that emerge
+## Workflows
 
-porq is deliberately small as a *product* and very useful as a *protocol*.
-Each workflow below is just layers composed — nothing here needed a new feature:
+Composed from the layers above — no extra product surface required.
 
-### Multi-agent coding desk (layers 1–3)
+### Multi-agent coding workspace (layers 1–3)
 
 Several Cursor / CLI agents share one workspace.
 
@@ -218,7 +214,7 @@ Several Cursor / CLI agents share one workspace.
 2. Each agent **locks** a card (`porq poi lock board T-12 --holder agent-a`).
 3. Tasks **claim** the paths they will touch.
 4. A trigger cancels stale work when a card flips to `blocked`.
-5. Dashboard on a second monitor so humans can interrupt without Slack archaeology.
+5. Dashboard on a second monitor for operators.
 
 ### Human-in-the-loop gates (layers 1 + 3)
 
@@ -232,44 +228,42 @@ trigger unblocks   →  merge / deploy task runs
 
 See `review-gate` and `preland-gate` in [`recipes/`](recipes/).
 
-### Serialized "one committer" lane (layer 2)
+### Single-committer lane (layer 2)
 
-Only one process may touch git at a time: write lease on `paths/repo`, queue of
-proposed patches as POIs, a central committer task drains → commits → releases.
-Chaos-free git even when five agents feel inspired.
+One process holds the git write lease on `paths/repo`; others queue proposed
+patches as POIs. A committer task drains, commits, and releases.
 
-### Roadmap sync, Linear ↔ local (layers 1 + 0)
+### External tracker sync (layers 1 + 0)
 
-A durable POI table mirrors external tickets; a **service** task polls and
-CAS-writes. Agents never talk to Linear directly — they talk to porq. The
-syncer is the diplomat.
+A durable POI table mirrors tickets; a **service** task polls and CAS-writes.
+Agents talk to porq; the syncer talks to the tracker.
 
-### Verify fan-out before land (layer 3)
+### Pre-land verification (layer 3)
 
 `preland-gate`: spawn parallel check tasks; a **blocking** trigger vetoes land
-if any fail. Budgets keep a flaky check from spawning a fork-bomb.
+if any fail. Budgets cap remediations.
 
-### Model pit lane (layer 4)
+### Model selection (layer 4)
 
-Register several model recipes (CLI wrappers, API scripts, whatever). Affinity
-EMA learns which model wins for `code.edit` vs `docs.summarize`.
+Register model recipes (CLI wrappers or API scripts). Affinity EMA learns which
+model wins for `code.edit` vs `docs.summarize`.
 
-### Local today, shared tomorrow (layer 5)
+### Local then shared (layer 5)
 
-Prototype entirely offline (SQLite). When the team wants one desk, copy
+Prototype on SQLite. When you need one store across machines, copy
 `.env.example` → `.env`, pass `--remote`, keep the same commands. Transactions
-wrap poi+event, leases, jobs — so two laptops don't half-write a board card.
+cover poi+event, leases, and jobs.
 
 ---
 
 ## Recipes
 
-Executable patterns live in [`recipes/`](recipes/):
+Executable patterns in [`recipes/`](recipes/):
 
-| Recipe | Mood |
-|--------|------|
+| Recipe | Purpose |
+|--------|---------|
 | `linear-sync` | Bidirectional roadmap via CAS + poller |
-| `central-committer` | One git pen, many authors |
+| `central-committer` | Serialized git writes |
 | `review-gate` | Human approval unblocks a task |
 | `preland-gate` | Fan-out verify + blocking veto |
 | `queue-drain` | Parallel drain, single-flight apply |
@@ -280,8 +274,7 @@ Executable patterns live in [`recipes/`](recipes/):
 
 ## Live dashboard
 
-That's the real UI at the top of this README. Source lives in
-[`web/dashboard/`](web/dashboard/), served over **HTTP** (not `file://`).
+Static UI in [`web/dashboard/`](web/dashboard/), served over **HTTP** (not `file://`).
 
 ```bash
 porq dash snapshot                 # → $ORQ_DATA_DIR/dash/data.json
@@ -292,16 +285,17 @@ Override static root with `--root` or `ORQ_DASH_ROOT`.
 
 ### Two views
 
-- **Canvases** (primary, default) — agent-published markdown / image / url / html cards. Wide grid, tall media.
-- **Details** (fallback) — board, tasks, jobs, affinities, events, files. Auto-opens when there are zero canvases.
-- **Pulse strip** — always-on counts + latest event; click to jump to Details.
+- **Canvases** (primary, default) — agent-published markdown / image / url / html cards.
+- **Details** — board, tasks, jobs, affinities, events, files. Opens automatically when there are no canvases.
+- **Pulse strip** — counts + latest event; click to open Details.
 
-Tab choice persists in `localStorage`.
+Tab choice persists in `localStorage`. Regenerate README images with
+`cd web && npm run capture:readme` (writes `dashboard.png`, `dashboard-details.png`, and `dashboard.gif`).
 
 ### Canvases (display protocol v1)
 
-Agents publish arbitrary display surfaces as POIs in the reserved **`canvas`**
-table. The dashboard polls them with everything else — no new transport.
+Agents publish display surfaces as POIs in the reserved **`canvas`** table.
+The dashboard polls them with the rest of the snapshot.
 
 | `kind` | Fields | Renders as |
 |--------|--------|------------|
@@ -313,7 +307,7 @@ table. The dashboard polls them with everything else — no new transport.
 
 `src` forms: `data:…` (inline), `canvas:<file>` → `$ORQ_DATA_DIR/canvas/` via
 `GET /canvas/<file>`, or `http(s)://…`. Layout hints: `columns.order`,
-`columns.span` (`1`|`2`). State pill: `live` / `done` / `archived`.
+`columns.span` (`1`|`2`). State: `live` / `done` / `archived`.
 
 ```bash
 porq canvas set plan --md ./notes.md --order 1
@@ -323,7 +317,7 @@ porq canvas ls --json
 porq canvas rm plan
 ```
 
-### Dashboard E2E (no LLM)
+### Dashboard E2E
 
 ```bash
 cargo build -p orq
@@ -332,14 +326,13 @@ npm run test:e2e
 ```
 
 Seed data is CLI-only (`echo` stubs): board POIs, affinities, a routed task,
-one MoA job. Regenerate the README screenshot with `npm run capture:readme`.
+one MoA job.
 
 ---
 
 ## Storage backends
 
-Progressive here too: one store API (`crates/orq-core/src/db.rs`), two backends,
-zero code changes to switch.
+One store API (`crates/orq-core/src/db.rs`), two backends.
 
 | Mode | Backend | How you get it |
 |------|---------|----------------|
@@ -352,19 +345,17 @@ ORQ_DB_URL=libsql://YOUR_DB.turso.io
 ORQ_DB_TOKEN=YOUR_TOKEN_HERE
 
 porq --remote init
-porq --remote workspace drop old-ws --yes   # destructive cloud hygiene
+porq --remote workspace drop old-ws --yes   # destructive
 ```
 
-Notes worth knowing:
-
 - Multi-statement mutations run in one transaction (`BEGIN IMMEDIATE` locally).
-- Live Turso E2E: `cargo test -p porq-core --test turso_e2e` (skips if no creds).
-- Embedded replica (local reads, synced writes) is a planned follow-up.
-- Lease expiry uses client clocks — keep NTP honest when several writers share remote.
+- Live Turso E2E: `cargo test -p orq-core --test turso_e2e` (skips if no creds).
+- Embedded replica (local reads, synced writes) is planned.
+- Lease expiry uses client clocks — keep clocks reasonably synced for remote multi-writer setups.
 
 ---
 
-## Mental model (the short version)
+## Mental model
 
 ```text
 ┌──────────── workspace ────────────┐
@@ -372,7 +363,7 @@ Notes worth knowing:
 │  Tasks (claims, logs, await)      │
 │  Triggers (react + budgets)       │
 │  Jobs / models (route & learn)    │
-│  Events (append-only pulse)       │
+│  Events (append-only log)         │
 └───────────────────────────────────┘
          │
          ├── local SQLite
@@ -381,13 +372,13 @@ Notes worth knowing:
 
 - Daemon-optional: `porq run --sync` needs none; unsupervised `run` auto-spawns
   `porq daemon run` (localhost TCP + port file).
-- Every mutation emits an event. Follow the log like a black box recorder.
-- Locks are **leases** (TTL + holder). Use `poi steal` for recovery theatre.
+- Every mutation emits an event.
+- Locks are **leases** (TTL + holder). Use `poi steal` for recovery.
 - Claims (`--claim "src/**"`) are write leases on the `paths` table for the task lifetime.
-- Nothing above layer 0 is mandatory. That's the whole point.
+- Nothing above layer 0 is required.
 
 ---
 
 ## License
 
-MIT — see the repo. Contributions welcome; chaos optional but documented.
+MIT. Contributions welcome.

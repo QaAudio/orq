@@ -1,5 +1,9 @@
 /**
- * Capture a README screenshot of the canvas-first dashboard.
+ * Capture README dashboard assets:
+ * - docs/img/dashboard.png          (Canvases view)
+ * - docs/img/dashboard-details.png  (Details view)
+ * - docs/img/dashboard.gif          (toggle between the two)
+ *
  * Usage (from web/): node e2e/capture-readme.mjs
  */
 import { spawn, spawnSync } from "node:child_process";
@@ -12,7 +16,9 @@ import { chromium } from "@playwright/test";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..", "..");
 const outDir = join(root, "docs", "img");
-const outPath = join(outDir, "dashboard.png");
+const outCanvases = join(outDir, "dashboard.png");
+const outDetails = join(outDir, "dashboard-details.png");
+const outGif = join(outDir, "dashboard.gif");
 
 function freePort() {
   return new Promise((resolve, reject) => {
@@ -207,9 +213,39 @@ await page.waitForFunction(() => {
 }, null, { timeout: 15_000 });
 await page.waitForSelector(".canvas-card", { timeout: 10_000 });
 await page.waitForSelector("#pulse-event", { timeout: 10_000 });
-await page.waitForTimeout(900);
-await page.screenshot({ path: outPath, fullPage: false });
+await page.waitForTimeout(700);
+await page.screenshot({ path: outCanvases, fullPage: false });
+
+await page.locator("#tab-details").click();
+await page.waitForSelector("#view-details.active", { timeout: 5_000 });
+await page.waitForSelector("#board", { timeout: 5_000 });
+await page.waitForTimeout(500);
+await page.screenshot({ path: outDetails, fullPage: false });
+
 await browser.close();
 proc.kill();
 
-console.log("wrote", outPath);
+const gifPy = `
+from PIL import Image
+a = Image.open(r'''${outCanvases.replace(/\\/g, "/")}''').convert("P", palette=Image.ADAPTIVE, colors=128)
+b = Image.open(r'''${outDetails.replace(/\\/g, "/")}''').convert("P", palette=Image.ADAPTIVE, colors=128)
+a.save(
+    r'''${outGif.replace(/\\/g, "/")}''',
+    save_all=True,
+    append_images=[b],
+    duration=1800,
+    loop=0,
+    optimize=True,
+)
+print("gif ok")
+`;
+const gif = spawnSync("python", ["-c", gifPy], { encoding: "utf8" });
+if (gif.status !== 0) {
+  console.error(gif.stdout || "");
+  console.error(gif.stderr || "");
+  process.exit(gif.status ?? 1);
+}
+
+console.log("wrote", outCanvases);
+console.log("wrote", outDetails);
+console.log("wrote", outGif);
